@@ -9,7 +9,7 @@ const RUST_OPTIONS_HEADING: &str = "Rust Options";
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "cargo dlx")]
 #[command(bin_name = "cargo dlx")]
-#[command(about = "Download, compile, and run a Rust binary in one shot.")]
+#[command(about = "A cargo subcommand for running remote binaries.")]
 #[command(styles = clap_cargo::style::CLAP_STYLING)]
 #[command(disable_version_flag = true)]
 #[command(disable_help_flag = true)]
