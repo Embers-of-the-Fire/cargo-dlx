@@ -54,6 +54,10 @@ Default package cache locations:
   - `--offline`
   - `--frozen`
 
+## Contribute
+
+See [`CONTRIBUTE.md`](CONTRIBUTE.md) for more information on how to contribute to this project.
+
 ## License
 
 This project is licensed under the [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) license.
