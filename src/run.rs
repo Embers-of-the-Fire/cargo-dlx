@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::cli::Cli;
+use crate::cli::CrateSpec;
 
 const CARGO_DLX_CACHE_DIR_ENV: &str = "CARGO_DLX_CACHE_DIR";
 
@@ -51,7 +52,10 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
         )
     })?;
 
-    let install_status = install_package(cli, install_root.path())
+    let krate = &cli.krate;
+    let args = &cli.args;
+
+    let install_status = install_package(krate, cli, install_root.path())
         .map_err(|error| RunError::new(format!("failed to launch `cargo install`: {error}"), 1))?;
 
     if !install_status.success() {
@@ -60,13 +64,13 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
         )));
     }
 
-    let executable = resolve_executable(&install_root.bin_dir(), &cli.krate.name)?;
+    let executable = resolve_executable(&install_root.bin_dir(), &krate.name)?;
 
     let run_status = if cli.shell_mode {
-        run_via_shell(cli, &executable)
+        run_via_shell(&executable, args)
             .map_err(|error| RunError::new(format!("failed to run command in shell: {error}"), 1))?
     } else {
-        run_direct(cli, &executable).map_err(|error| {
+        run_direct(&executable, args).map_err(|error| {
             RunError::new(
                 format!("failed to execute `{}`: {error}", executable.display()),
                 1,
@@ -81,14 +85,14 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
     }
 }
 
-fn install_package(cli: &Cli, root: &Path) -> io::Result<ExitStatus> {
+fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<ExitStatus> {
     let mut command = Command::new(cargo_binary());
     command.arg("install");
-    command.arg(&cli.krate.name);
+    command.arg(&krate.name);
     command.arg("--root");
     command.arg(root);
 
-    if let Some(version_req) = &cli.krate.version {
+    if let Some(version_req) = &krate.version {
         command.arg("--version");
         command.arg(version_req.to_string());
     }
@@ -191,28 +195,28 @@ fn non_empty_env_os(name: &str) -> Option<OsString> {
     std::env::var_os(name).filter(|value| !value.is_empty())
 }
 
-fn run_direct(cli: &Cli, executable: &Path) -> io::Result<ExitStatus> {
+fn run_direct(executable: &Path, args: &[OsString]) -> io::Result<ExitStatus> {
     let mut command = Command::new(executable);
-    command.args(&cli.args);
+    command.args(args);
 
     command.status()
 }
 
 #[cfg(unix)]
-fn run_via_shell(cli: &Cli, executable: &Path) -> io::Result<ExitStatus> {
+fn run_via_shell(executable: &Path, args: &[OsString]) -> io::Result<ExitStatus> {
     let shell = non_empty_env_os("SHELL").unwrap_or_else(|| OsString::from("/bin/sh"));
 
     let mut command = Command::new(shell);
     command.arg("-c");
     command.arg("exec \"$0\" \"$@\"");
     command.arg(executable);
-    command.args(&cli.args);
+    command.args(args);
 
     command.status()
 }
 
 #[cfg(not(unix))]
-fn run_via_shell(_cli: &Cli, _executable: &Path) -> io::Result<ExitStatus> {
+fn run_via_shell(_executable: &Path, _args: &[OsString]) -> io::Result<ExitStatus> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
         "`--shell-mode` is currently supported on Unix platforms only",
