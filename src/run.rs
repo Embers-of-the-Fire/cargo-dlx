@@ -52,10 +52,15 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
         )
     })?;
 
-    let krate = &cli.krate;
-    let args = &cli.args;
+    let krate = cli.krate_and_args[0]
+        .to_str()
+        .ok_or_else(|| RunError::new(format!("crate name is not valid a UTF-8 string"), 1))?;
+    let krate = krate
+        .parse::<CrateSpec>()
+        .map_err(|err| RunError::new(format!("{err}"), 1))?;
+    let args = &cli.krate_and_args[1..];
 
-    let install_status = install_package(krate, cli, install_root.path())
+    let install_status = install_package(&krate, cli, install_root.path())
         .map_err(|error| RunError::new(format!("failed to launch `cargo install`: {error}"), 1))?;
 
     if !install_status.success() {

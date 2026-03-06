@@ -18,19 +18,13 @@ const RUST_OPTIONS_HEADING: &str = "Rust Options";
 )]
 pub struct Cli {
     #[arg(
-        value_name = "CRATE[@<VER>]",
-        help = "Package to download, compile, and execute"
-    )]
-    pub krate: CrateSpec,
-
-    #[arg(
-        value_name = "ARGS",
-        help = "Arguments passed to the downloaded binary",
+        value_names = ["CRATE[@<VER>]", "ARG"],
         trailing_var_arg = true,
         allow_hyphen_values = true,
-        num_args = 0..
+        num_args = 1..,
+        help = "Package to download, compile, and execute"
     )]
-    pub args: Vec<OsString>,
+    pub krate_and_args: Vec<OsString>,
 
     #[arg(
         short = 'c',
@@ -242,6 +236,32 @@ mod tests {
     }
 
     #[test]
+    fn parse_crate_with_version() {
+        let spec = "ripgrep@14.1.1".parse::<CrateSpec>().unwrap();
+
+        assert_eq!(
+            spec,
+            CrateSpec {
+                name: "ripgrep".to_owned(),
+                version: Some(VersionReq::parse("=14.1.1").unwrap()),
+            }
+        );
+    }
+
+    #[test]
+    fn parse_crate() {
+        let spec = "ripgrep".parse::<CrateSpec>().unwrap();
+
+        assert_eq!(
+            spec,
+            CrateSpec {
+                name: "ripgrep".to_owned(),
+                version: None,
+            }
+        );
+    }
+
+    #[test]
     fn parses_crate_and_forwarded_args() {
         let cli = Cli::parse_from([
             "cargo-dlx",
@@ -253,34 +273,21 @@ mod tests {
         ]);
 
         assert_eq!(
-            cli.krate,
-            CrateSpec {
-                name: "ripgrep".to_owned(),
-                version: Some(VersionReq::parse("=14.1.1").unwrap()),
-            }
+            cli.krate_and_args,
+            vec!["ripgrep@14.1.1", "--help", "--json", "--color", "always"]
         );
-        assert_eq!(cli.args, vec!["--help", "--json", "--color", "always"]);
     }
 
     #[test]
     fn parses_positional_crate_without_version() {
         let cli = Cli::parse_from(["cargo-dlx", "cargo-nextest"]);
-        assert_eq!(cli.krate.name, "cargo-nextest");
-        assert_eq!(cli.krate.version, None);
+        assert_eq!(cli.krate_and_args, vec!["cargo-nextest"]);
     }
 
     #[test]
     fn parses_positional_crate_with_attached_version() {
         let cli = Cli::parse_from(["cargo-dlx", "ripgrep@14.1.1", "--version"]);
-
-        assert_eq!(
-            cli.krate,
-            CrateSpec {
-                name: "ripgrep".to_owned(),
-                version: Some(VersionReq::parse("=14.1.1").unwrap()),
-            }
-        );
-        assert_eq!(cli.args, vec!["--version"]);
+        assert_eq!(cli.krate_and_args, vec!["ripgrep@14.1.1", "--version"]);
     }
 
     #[test]
