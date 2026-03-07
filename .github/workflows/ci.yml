@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  merge_group:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install stable toolchain with rustfmt
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+  clippy:
+    name: Clippy ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+          - os: macos-latest
+            name: macOS aarch64
+          - os: windows-latest
+            name: Windows x86_64 MSVC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install stable toolchain with clippy
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --no-deps --locked -- -D warnings
+
+  test:
+    name: Tests ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64 stable
+            toolchain: stable
+          - os: ubuntu-latest
+            name: Linux x86_64 nightly
+            toolchain: nightly
+          - os: macos-latest
+            name: macOS aarch64 stable
+            toolchain: stable
+          - os: windows-latest
+            name: Windows x86_64 MSVC stable
+            toolchain: stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --locked
