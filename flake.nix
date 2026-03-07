@@ -21,7 +21,10 @@
         config.allowUnfree = true;
       };
       rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-        extensions = [ "rust-analyzer" ];
+        extensions = [
+          "rust-analyzer"
+          "rust-src"
+        ];
       };
     in
     {
