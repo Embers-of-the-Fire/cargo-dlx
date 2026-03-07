@@ -1,6 +1,6 @@
 mod cargo_dlx;
 
-use cargo_test_support::{execs, process, ArgLineCommandExt, Execs, Project, TestEnvCommandExt};
+use cargo_test_support::{ArgLineCommandExt, Execs, Project, TestEnvCommandExt, execs, process};
 use cargo_util::ProcessBuilder;
 
 pub fn cargo_dlx_exe() -> std::path::PathBuf {
