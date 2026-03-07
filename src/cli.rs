@@ -5,6 +5,7 @@ use semver::{Version, VersionReq};
 
 const CACHE_HEADING: &str = "Cache";
 const RUST_OPTIONS_HEADING: &str = "Rust Options";
+const SUBCOMMAND_NAME: &str = "dlx";
 
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "cargo dlx")]
@@ -103,6 +104,28 @@ pub struct Cli {
 }
 
 impl Cli {
+    pub fn normalize_raw_args(args: impl IntoIterator<Item = OsString>) -> Vec<OsString> {
+        Self::normalize_raw_args_with_cargo_env(args, std::env::var_os("CARGO"))
+    }
+
+    fn normalize_raw_args_with_cargo_env(
+        args: impl IntoIterator<Item = OsString>,
+        cargo_env: Option<OsString>,
+    ) -> Vec<OsString> {
+        let mut normalized: Vec<OsString> = args.into_iter().collect();
+
+        if cargo_env.is_some()
+            && normalized
+                .first()
+                .and_then(|arg| arg.to_str())
+                .is_some_and(|value| value == SUBCOMMAND_NAME)
+        {
+            normalized.remove(0);
+        }
+
+        normalized
+    }
+
     pub fn wants_help(args: impl IntoIterator<Item = OsString>) -> bool {
         let mut expects_value = false;
 
@@ -229,7 +252,7 @@ fn parse_semver_flag(value: &str) -> Result<VersionReq, String> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{ffi::OsString, path::PathBuf};
 
     use clap::{CommandFactory, Parser};
     use semver::VersionReq;
@@ -292,6 +315,33 @@ mod tests {
             "--help".into(),
         ]));
         assert!(!Cli::wants_help(["rg".into(), "--help".into()]));
+    }
+
+    #[test]
+    fn strips_subcommand_prefix_when_invoked_by_cargo() {
+        let args = Cli::normalize_raw_args_with_cargo_env(
+            ["dlx".into(), "ripgrep".into()],
+            Some("cargo".into()),
+        );
+
+        assert_eq!(args, vec![OsString::from("ripgrep")]);
+    }
+
+    #[test]
+    fn keeps_standalone_arguments_without_cargo_env() {
+        let args = Cli::normalize_raw_args_with_cargo_env(["dlx".into(), "ripgrep".into()], None);
+
+        assert_eq!(args, vec![OsString::from("dlx"), OsString::from("ripgrep")]);
+    }
+
+    #[test]
+    fn detects_help_after_subcommand_normalization() {
+        let args = Cli::normalize_raw_args_with_cargo_env(
+            ["dlx".into(), "--help".into()],
+            Some("cargo".into()),
+        );
+
+        assert!(Cli::wants_help(args));
     }
 
     #[test]

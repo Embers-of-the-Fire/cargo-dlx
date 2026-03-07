@@ -6,7 +6,12 @@ mod run;
 cargo_subcommand_metadata::description!("Download, compile, and execute a Rust binary in one shot");
 
 fn main() {
-    let raw_args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let mut argv = std::env::args_os();
+    let program_name = argv
+        .next()
+        .unwrap_or_else(|| std::ffi::OsString::from("cargo-dlx"));
+    let raw_args = cli::Cli::normalize_raw_args(argv);
+
     if cli::Cli::wants_help(raw_args.iter().cloned()) {
         let mut command = cli::Cli::command();
         command
@@ -16,7 +21,7 @@ fn main() {
         return;
     }
 
-    let cmd = cli::Cli::parse();
+    let cmd = cli::Cli::parse_from(std::iter::once(program_name).chain(raw_args.iter().cloned()));
     if let Err(error) = cmd.validate() {
         error.exit();
     }
