@@ -6,8 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::cli::Cli;
-use crate::cli::CrateSpec;
+use super::cli::{Cli, CrateSpec};
 
 const CARGO_DLX_CACHE_DIR_ENV: &str = "CARGO_DLX_CACHE_DIR";
 
@@ -377,8 +376,8 @@ mod tests {
 
     use clap::Parser;
 
+    use super::super::cli::Cli;
     use super::{binary_target_name, package_cache_dir, resolve_executable};
-    use crate::cli::Cli;
 
     #[test]
     fn picks_single_binary_when_name_is_different() {

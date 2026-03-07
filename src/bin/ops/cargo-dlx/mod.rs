@@ -3,9 +3,7 @@ use clap::{CommandFactory, Parser};
 mod cli;
 mod run;
 
-cargo_subcommand_metadata::description!("Download, compile, and execute a Rust binary in one shot");
-
-fn main() {
+pub(crate) fn run() {
     let mut argv = std::env::args_os();
     let program_name = argv
         .next()
