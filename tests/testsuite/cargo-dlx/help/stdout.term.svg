@@ -34,35 +34,35 @@
 </tspan>
     <tspan x="10px" y="172px"><tspan>  -c, --shell-mode  Run the command inside a shell</tspan>
 </tspan>
-    <tspan x="10px" y="190px">
+    <tspan x="10px" y="190px"><tspan>  -h, --help        Print help</tspan>
 </tspan>
-    <tspan x="10px" y="208px"><tspan>Cache:</tspan>
+    <tspan x="10px" y="208px">
 </tspan>
-    <tspan x="10px" y="226px"><tspan>      --cache-dir &lt;DIR&gt;   Directory used to cache package build artifacts</tspan>
+    <tspan x="10px" y="226px"><tspan>Cache:</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>      --no-package-cache  Disable package build artifact caching</tspan>
+    <tspan x="10px" y="244px"><tspan>      --cache-dir &lt;DIR&gt;   Directory used to cache package build artifacts</tspan>
 </tspan>
-    <tspan x="10px" y="262px">
+    <tspan x="10px" y="262px"><tspan>      --no-package-cache  Disable package build artifact caching</tspan>
 </tspan>
-    <tspan x="10px" y="280px"><tspan>Rust Options:</tspan>
+    <tspan x="10px" y="280px">
 </tspan>
-    <tspan x="10px" y="298px"><tspan>  -F, --features &lt;FEATURES&gt;  Space or comma separated list of features to activate</tspan>
+    <tspan x="10px" y="298px"><tspan>Rust Options:</tspan>
 </tspan>
-    <tspan x="10px" y="316px"><tspan>      --all-features         Activate all available features</tspan>
+    <tspan x="10px" y="316px"><tspan>  -F, --features &lt;FEATURES&gt;  Space or comma separated list of features to activate</tspan>
 </tspan>
-    <tspan x="10px" y="334px"><tspan>      --no-default-features  Do not activate the `default` feature</tspan>
+    <tspan x="10px" y="334px"><tspan>      --all-features         Activate all available features</tspan>
 </tspan>
-    <tspan x="10px" y="352px"><tspan>      --locked               Assert that `Cargo.lock` will remain unchanged</tspan>
+    <tspan x="10px" y="352px"><tspan>      --no-default-features  Do not activate the `default` feature</tspan>
 </tspan>
-    <tspan x="10px" y="370px"><tspan>      --offline              Run without accessing the network</tspan>
+    <tspan x="10px" y="370px"><tspan>      --locked               Assert that `Cargo.lock` will remain unchanged</tspan>
 </tspan>
-    <tspan x="10px" y="388px"><tspan>      --frozen               Equivalent to specifying both --locked and --offline</tspan>
+    <tspan x="10px" y="388px"><tspan>      --offline              Run without accessing the network</tspan>
 </tspan>
-    <tspan x="10px" y="406px">
+    <tspan x="10px" y="406px"><tspan>      --frozen               Equivalent to specifying both --locked and --offline</tspan>
 </tspan>
-    <tspan x="10px" y="424px"><tspan>Visit https://github.com/Embers-of-the-Fire/cargo-dlx for documentation about this command.</tspan>
+    <tspan x="10px" y="424px">
 </tspan>
-    <tspan x="10px" y="442px">
+    <tspan x="10px" y="442px"><tspan>Visit https://github.com/Embers-of-the-Fire/cargo-dlx for documentation about this command.</tspan>
 </tspan>
     <tspan x="10px" y="460px">
 </tspan>
