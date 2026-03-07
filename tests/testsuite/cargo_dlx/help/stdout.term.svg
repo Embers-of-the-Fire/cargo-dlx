@@ -1,0 +1,71 @@
+<svg width="785px" height="470px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan>A cargo subcommand for running remote binaries.</tspan>
+</tspan>
+    <tspan x="10px" y="46px">
+</tspan>
+    <tspan x="10px" y="64px"><tspan>Usage: cargo dlx [OPTIONS] [CRATE[@&lt;VER&gt;]] [ARG]...</tspan>
+</tspan>
+    <tspan x="10px" y="82px">
+</tspan>
+    <tspan x="10px" y="100px"><tspan>Arguments:</tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan>  [CRATE[@&lt;VER&gt;]] [ARG]...  Package to download, compile, and execute</tspan>
+</tspan>
+    <tspan x="10px" y="136px">
+</tspan>
+    <tspan x="10px" y="154px"><tspan>Options:</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan>  -c, --shell-mode  Run the command inside a shell</tspan>
+</tspan>
+    <tspan x="10px" y="190px">
+</tspan>
+    <tspan x="10px" y="208px"><tspan>Cache:</tspan>
+</tspan>
+    <tspan x="10px" y="226px"><tspan>      --cache-dir &lt;DIR&gt;   Directory used to cache package build artifacts</tspan>
+</tspan>
+    <tspan x="10px" y="244px"><tspan>      --no-package-cache  Disable package build artifact caching</tspan>
+</tspan>
+    <tspan x="10px" y="262px">
+</tspan>
+    <tspan x="10px" y="280px"><tspan>Rust Options:</tspan>
+</tspan>
+    <tspan x="10px" y="298px"><tspan>  -F, --features &lt;FEATURES&gt;  Space or comma separated list of features to activate</tspan>
+</tspan>
+    <tspan x="10px" y="316px"><tspan>      --all-features         Activate all available features</tspan>
+</tspan>
+    <tspan x="10px" y="334px"><tspan>      --no-default-features  Do not activate the `default` feature</tspan>
+</tspan>
+    <tspan x="10px" y="352px"><tspan>      --locked               Assert that `Cargo.lock` will remain unchanged</tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan>      --offline              Run without accessing the network</tspan>
+</tspan>
+    <tspan x="10px" y="388px"><tspan>      --frozen               Equivalent to specifying both --locked and --offline</tspan>
+</tspan>
+    <tspan x="10px" y="406px">
+</tspan>
+    <tspan x="10px" y="424px"><tspan>Visit https://github.com/Embers-of-the-Fire/cargo-dlx for documentation about this command.</tspan>
+</tspan>
+    <tspan x="10px" y="442px">
+</tspan>
+    <tspan x="10px" y="460px">
+</tspan>
+  </text>
+
+</svg>
