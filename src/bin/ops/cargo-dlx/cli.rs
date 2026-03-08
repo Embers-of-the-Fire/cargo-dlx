@@ -13,7 +13,7 @@ const SUBCOMMAND_NAME: &str = "dlx";
 #[command(about = "A cargo subcommand for running remote binaries.")]
 #[command(styles = clap_cargo::style::CLAP_STYLING)]
 #[command(disable_version_flag = true)]
-#[command(disable_help_flag = true)]
+#[command(arg_required_else_help = true)]
 #[command(
     after_help = "Visit https://github.com/Embers-of-the-Fire/cargo-dlx for documentation about this command."
 )]
@@ -118,63 +118,6 @@ impl Cli {
         }
 
         normalized
-    }
-
-    pub fn wants_help(args: impl IntoIterator<Item = OsString>) -> bool {
-        let mut expects_value = false;
-
-        for arg in args {
-            let Some(value) = arg.to_str() else {
-                return false;
-            };
-
-            if expects_value {
-                expects_value = false;
-                continue;
-            }
-
-            if value == "--" {
-                break;
-            }
-
-            if value == "-h" || value == "--help" {
-                return true;
-            }
-
-            if Self::is_value_option_with_equals(value) || Self::is_short_value_option_inline(value)
-            {
-                continue;
-            }
-
-            if Self::is_value_option(value) {
-                expects_value = true;
-                continue;
-            }
-
-            if value.starts_with('-') {
-                continue;
-            }
-
-            return false;
-        }
-
-        false
-    }
-
-    fn is_value_option(value: &str) -> bool {
-        matches!(value, "--features" | "-F" | "--cache-dir")
-    }
-
-    fn is_value_option_with_equals(value: &str) -> bool {
-        let Some((option, _)) = value.split_once('=') else {
-            return false;
-        };
-
-        Self::is_value_option(option)
-    }
-
-    fn is_short_value_option_inline(value: &str) -> bool {
-        value.starts_with("-F") && value.len() > 2
     }
 
     pub fn validate(&self) -> Result<(), clap::Error> {
@@ -314,17 +257,6 @@ mod tests {
     }
 
     #[test]
-    fn wants_help_before_crate() {
-        assert!(Cli::wants_help(["--help".into()]));
-        assert!(Cli::wants_help([
-            "--cache-dir".into(),
-            "/tmp/cargo-dlx-cache".into(),
-            "--help".into(),
-        ]));
-        assert!(!Cli::wants_help(["rg".into(), "--help".into()]));
-    }
-
-    #[test]
     fn strips_subcommand_prefix_when_invoked_by_cargo() {
         let args = Cli::normalize_raw_args_with_cargo_env(
             ["dlx".into(), "ripgrep".into()],
@@ -339,16 +271,6 @@ mod tests {
         let args = Cli::normalize_raw_args_with_cargo_env(["dlx".into(), "ripgrep".into()], None);
 
         assert_eq!(args, vec![OsString::from("dlx"), OsString::from("ripgrep")]);
-    }
-
-    #[test]
-    fn detects_help_after_subcommand_normalization() {
-        let args = Cli::normalize_raw_args_with_cargo_env(
-            ["dlx".into(), "--help".into()],
-            Some("cargo".into()),
-        );
-
-        assert!(Cli::wants_help(args));
     }
 
     #[test]
