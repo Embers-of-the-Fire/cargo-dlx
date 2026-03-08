@@ -2,10 +2,15 @@
 
 `cargo dlx` downloads, compiles, and executes a Rust binary without installing it globally.
 
+This package is in its early stages of development, and the API may change without a major version bump.
+
+For design of the command, please refer to [DESIGN.md](DESIGN.md).
+Feel free to discuss about design by creating a Pull Request against the document.
+
 ## Usage
 
 ```bash
-cargo dlx ripgrep@14.1.1 -- --help
+cargo dlx ripgrep@14.1.1 --help
 ```
 
 The command installs into a temporary directory, runs the binary, then removes the temporary files.
