@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use super::cli::{Cli, CrateSpec};
+use super::cli::{Cli, CrateSpec, GitReference, PackageSource};
 
 const CARGO_DLX_CACHE_DIR_ENV: &str = "CARGO_DLX_CACHE_DIR";
 
@@ -68,7 +68,7 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
         )));
     }
 
-    let executable = resolve_executable(&install_root.bin_dir(), &krate.name)?;
+    let executable = resolve_executable(&install_root.bin_dir(), krate.package.as_deref())?;
 
     let run_status = if cli.shell_mode {
         run_via_shell(&executable, args)
@@ -92,7 +92,56 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
 fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<ExitStatus> {
     let mut command = Command::new(cargo_binary());
     command.arg("install");
-    command.arg(&krate.name);
+
+    match &krate.source {
+        PackageSource::CratesIo => {
+            if let Some(package) = &krate.package {
+                command.arg(package);
+            }
+        }
+        PackageSource::RegistryIndex { index } => {
+            command.arg("--index");
+            command.arg(index);
+
+            if let Some(package) = &krate.package {
+                command.arg(package);
+            }
+        }
+        PackageSource::Git { url, reference } => {
+            command.arg("--git");
+            command.arg(url);
+
+            if let Some(reference) = reference {
+                match reference {
+                    GitReference::Branch(branch) => {
+                        command.arg("--branch");
+                        command.arg(branch);
+                    }
+                    GitReference::Tag(tag) => {
+                        command.arg("--tag");
+                        command.arg(tag);
+                    }
+                    GitReference::Rev(rev) => {
+                        command.arg("--rev");
+                        command.arg(rev);
+                    }
+                }
+            }
+
+            if let Some(package) = &krate.package {
+                command.arg(package);
+            }
+        }
+        PackageSource::Path { path } => {
+            command.arg("--path");
+            command.arg(path);
+
+            if let Some(package) = &krate.package {
+                command.arg(package);
+            }
+        }
+    }
+
     command.arg("--root");
     command.arg(root);
 
@@ -227,7 +276,7 @@ fn run_via_shell(_executable: &Path, _args: &[OsString]) -> io::Result<ExitStatu
     ))
 }
 
-fn resolve_executable(bin_dir: &Path, package_name: &str) -> Result<PathBuf, RunError> {
+fn resolve_executable(bin_dir: &Path, package_name: Option<&str>) -> Result<PathBuf, RunError> {
     let mut entries = Vec::new();
 
     let read_dir = fs::read_dir(bin_dir).map_err(|error| {
@@ -260,15 +309,17 @@ fn resolve_executable(bin_dir: &Path, package_name: &str) -> Result<PathBuf, Run
     entries.sort();
 
     if entries.is_empty() {
+        let package_label = package_name.unwrap_or("the selected package");
         return Err(RunError::new(
-            format!("`{package_name}` did not install any executable binaries"),
+            format!("`{package_label}` did not install any executable binaries"),
             1,
         ));
     }
 
-    if let Some(entry) = entries
-        .iter()
-        .find(|entry| binary_target_name(entry).is_some_and(|name| name == package_name))
+    if let Some(package_name) = package_name
+        && let Some(entry) = entries
+            .iter()
+            .find(|entry| binary_target_name(entry).is_some_and(|name| name == package_name))
     {
         return Ok(entry.clone());
     }
@@ -288,12 +339,15 @@ fn resolve_executable(bin_dir: &Path, package_name: &str) -> Result<PathBuf, Run
         .collect::<Vec<_>>()
         .join(", ");
 
-    Err(RunError::new(
+    let message = if let Some(package_name) = package_name {
         format!(
             "`{package_name}` installed multiple binaries ({known}), unable to select one automatically"
-        ),
-        1,
-    ))
+        )
+    } else {
+        format!("installed multiple binaries ({known}), unable to select one automatically")
+    };
+
+    Err(RunError::new(message, 1))
 }
 
 #[cfg(windows)]
@@ -393,7 +447,7 @@ mod tests {
 
         fs::write(bin_dir.join(bin_name), b"").unwrap();
 
-        let executable = resolve_executable(&bin_dir, "my-crate").unwrap();
+        let executable = resolve_executable(&bin_dir, Some("my-crate")).unwrap();
         assert_eq!(binary_target_name(&executable), Some("custom-runner"));
 
         let _ = fs::remove_dir_all(&temp_dir);
@@ -411,7 +465,7 @@ mod tests {
         fs::write(bin_dir.join(first_name), b"").unwrap();
         fs::write(bin_dir.join(second_name), b"").unwrap();
 
-        let executable = resolve_executable(&bin_dir, "tool").unwrap();
+        let executable = resolve_executable(&bin_dir, Some("tool")).unwrap();
         assert_eq!(binary_target_name(&executable), Some("tool"));
 
         let _ = fs::remove_dir_all(&temp_dir);
@@ -429,7 +483,7 @@ mod tests {
         fs::write(bin_dir.join(first_name), b"").unwrap();
         fs::write(bin_dir.join(second_name), b"").unwrap();
 
-        let error = resolve_executable(&bin_dir, "tool").unwrap_err();
+        let error = resolve_executable(&bin_dir, Some("tool")).unwrap_err();
         assert!(error.to_string().contains("installed multiple binaries"));
 
         let _ = fs::remove_dir_all(&temp_dir);

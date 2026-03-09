@@ -150,6 +150,7 @@ dependencies = [
  "clap-cargo",
  "semver",
  "snapbox",
+ "url",
 ]
 
 [[package]]

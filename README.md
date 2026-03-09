@@ -13,6 +13,61 @@ Feel free to discuss about design by creating a Pull Request against the documen
 cargo dlx ripgrep@14.1.1 --help
 ```
 
+## Package Specification Syntax
+
+`cargo dlx` accepts both simple package names and source-qualified package references.
+
+Supported forms:
+
+- `name`
+- `name@version`
+- `git+<url>[?branch=<name>|tag=<name>|rev=<sha>][#<pkg>[@<ver>] | #<ver>]`
+- `file://<path>[#<pkg>[@<ver>] | #<ver>]`
+- `file+file://<path>[#<pkg>[@<ver>] | #<ver>]`
+- `path+file://<path>[#<pkg>[@<ver>] | #<ver>]`
+- `registry+<index-url>#<pkg>[@<ver>]`
+- `sparse+<index-url>#<pkg>[@<ver>]`
+
+### Examples
+
+Registry / crates.io:
+
+```bash
+cargo dlx ripgrep
+cargo dlx ripgrep@14.1.1
+cargo dlx 'registry+https://github.com/rust-lang/crates.io-index#ripgrep@14.1.1'
+cargo dlx 'sparse+https://index.crates.io/#ripgrep@14.1.1'
+```
+
+Git:
+
+```bash
+cargo dlx 'git+https://github.com/rust-lang/cargo.git#cargo@0.85.0'
+cargo dlx 'git+https://github.com/rust-lang/cargo.git?rev=<commit>#cargo'
+cargo dlx 'git+https://github.com/owner/repo.git#1.2.3'
+```
+
+Local path (`file://`, `file+file://`, `path+file://`):
+
+```bash
+cargo dlx 'file:///absolute/path/to/my-tool#my-tool'
+cargo dlx 'path+file:///absolute/path/to/my-tool#my-tool@0.1.0'
+cargo dlx 'file+file:///absolute/path/to/my-tool#my-tool'
+```
+
+Relative local path (supported):
+
+```bash
+cargo dlx 'file://edit#edit'
+cargo dlx 'file://../foo#foo'
+```
+
+### Notes
+
+- For `registry+...` / `sparse+...`, package name in fragment (`#pkg`) is required.
+- For local file source references, URL query parameters are not supported.
+- If you use shell-sensitive characters (like `?` or `#`), quote the whole package spec.
+
 The command installs into a temporary directory, runs the binary, then removes the temporary files.
 `cargo-dlx` invokes the Cargo executable from `$CARGO` when set, otherwise `cargo` from `PATH`.
 Package build artifacts are cached in a persistent Cargo target directory (default under cache home)

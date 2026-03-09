@@ -14,6 +14,7 @@ cargo-subcommand-metadata = "0.1.0"
 clap = { version = "4.5.60", features = ["derive"] }
 clap-cargo = "0.18.3"
 semver = "1.0.27"
+url = "2.5.7"
 
 [dev-dependencies]
 cargo-test-macro = "0.4.9"
