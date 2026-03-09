@@ -51,6 +51,11 @@ impl std::fmt::Display for RunError {
 impl std::error::Error for RunError {}
 
 pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
+    if cli.clear {
+        clear_cached_data(cli)?;
+        return Ok(Execution::Completed);
+    }
+
     let install_root = TempInstallRoot::new().map_err(|error| {
         RunError::new(
             format!("failed to create temporary install root: {error}"),
@@ -89,6 +94,61 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
     } else {
         Ok(Execution::ChildExited(exit_code_from_status(&run_status)))
     }
+}
+
+fn clear_cached_data(cli: &Cli) -> Result<(), RunError> {
+    let directories = resolve_dlx_directories().map_err(|error| {
+        RunError::new(
+            format!("failed to resolve cargo-dlx cache directories: {error}"),
+            1,
+        )
+    })?;
+
+    remove_directory_if_exists(directories.temp_base_dir()).map_err(|error| {
+        RunError::new(
+            format!(
+                "failed to clear temporary install roots at `{}`: {error}",
+                directories.temp_base_dir().display()
+            ),
+            1,
+        )
+    })?;
+
+    let Some(cache_dir) = package_cache_dir_for_clear(cli, &directories) else {
+        return Ok(());
+    };
+
+    if cache_dir == directories.temp_base_dir() {
+        return Ok(());
+    }
+
+    remove_directory_if_exists(&cache_dir).map_err(|error| {
+        RunError::new(
+            format!(
+                "failed to clear package build cache at `{}`: {error}",
+                cache_dir.display()
+            ),
+            1,
+        )
+    })?;
+
+    Ok(())
+}
+
+fn remove_directory_if_exists(path: &Path) -> io::Result<()> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+fn package_cache_dir_for_clear(cli: &Cli, directories: &DlxDirectories) -> Option<PathBuf> {
+    if let Some(path) = &cli.cache_dir {
+        return Some(path.clone());
+    }
+
+    Some(directories.build_target_dir())
 }
 
 fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<ExitStatus> {

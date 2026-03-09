@@ -17,12 +17,12 @@ Unresolved problems:
 
 Implement status:
 
-- ✅ `foo` / `foo@version` (crates.io)
-- ✅ `git+<URL>[?branch=...|tag=...|rev=...][#<pkg>[@<ver>] | #<ver>]`
-- ✅ `file:///<absolute-path>[#<pkg>[@<ver>] | #<ver>]`
-- ✅ `path+file:///<absolute-path>[#<pkg>[@<ver>] | #<ver>]`
-- ✅ `registry+<index-url>#<pkg>[@<ver>]`
-- ✅ `sparse+<index-url>#<pkg>[@<ver>]`
+- `foo` / `foo@version` (crates.io)
+- `git+<URL>[?branch=...|tag=...|rev=...][#<pkg>[@<ver>] | #<ver>]`
+- `file:///<absolute-path>[#<pkg>[@<ver>] | #<ver>]`
+- `path+file:///<absolute-path>[#<pkg>[@<ver>] | #<ver>]`
+- `registry+<index-url>#<pkg>[@<ver>]`
+- `sparse+<index-url>#<pkg>[@<ver>]`
 
 Behavior notes for current implementation:
 
@@ -77,12 +77,7 @@ Current behavior:
 
 - `tmp/<timestamp>` installation roots are removed automatically when the process exits.
 - build cache (`build/target`) remains for reuse across invocations.
-
-Planned behavior:
-
-- a future `--clear` option could delete temporary directories and build cache.
-
-Implement status: Not implemented now.
+- `--clear` removes temporary install roots and package cache directories.
 
 ## Multiple Binaries
 
