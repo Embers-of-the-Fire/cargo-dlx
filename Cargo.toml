@@ -1,6 +1,6 @@
 [package]
 name = "cargo-dlx"
-version = "0.2.0"
+version = "0.2.1"
 description = "A cargo subcommand for running remote binaries"
 edition = "2024"
 authors = ["Embers-of-the-Fire <stellarishs@163.com>"]
