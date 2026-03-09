@@ -4,8 +4,9 @@ use clap::ArgAction;
 use semver::{Version, VersionReq};
 use url::Url;
 
-const CACHE_HEADING: &str = "Cache";
-const RUST_OPTIONS_HEADING: &str = "Rust Options";
+const FEATURE_HEADING: &str = "Feature Selection";
+const COMPILATION_HEADING: &str = "Compilation Options";
+const MANIFEST_HEADING: &str = "Manifest Options";
 const SUBCOMMAND_NAME: &str = "dlx";
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -32,14 +33,14 @@ pub struct Cli {
         long,
         value_name = "DIR",
         help = "Directory used to cache package build artifacts",
-        help_heading = CACHE_HEADING
+        help_heading = COMPILATION_HEADING
     )]
     pub cache_dir: Option<PathBuf>,
 
     #[arg(
         long,
         help = "Disable package build artifact caching",
-        help_heading = CACHE_HEADING,
+        help_heading = COMPILATION_HEADING,
         conflicts_with = "cache_dir"
     )]
     pub no_package_cache: bool,
@@ -51,42 +52,42 @@ pub struct Cli {
         value_delimiter = ',',
         action = ArgAction::Append,
         help = "Space or comma separated list of features to activate",
-        help_heading = RUST_OPTIONS_HEADING
+        help_heading = FEATURE_HEADING
     )]
     pub features: Vec<String>,
 
     #[arg(
         long,
         help = "Activate all available features",
-        help_heading = RUST_OPTIONS_HEADING
+        help_heading = FEATURE_HEADING
     )]
     pub all_features: bool,
 
     #[arg(
         long,
         help = "Do not activate the `default` feature",
-        help_heading = RUST_OPTIONS_HEADING
+        help_heading = FEATURE_HEADING
     )]
     pub no_default_features: bool,
 
     #[arg(
         long,
         help = "Assert that `Cargo.lock` will remain unchanged",
-        help_heading = RUST_OPTIONS_HEADING
+        help_heading = MANIFEST_HEADING
     )]
     pub locked: bool,
 
     #[arg(
         long,
         help = "Run without accessing the network",
-        help_heading = RUST_OPTIONS_HEADING
+        help_heading = MANIFEST_HEADING
     )]
     pub offline: bool,
 
     #[arg(
         long,
         help = "Equivalent to specifying both --locked and --offline",
-        help_heading = RUST_OPTIONS_HEADING
+        help_heading = MANIFEST_HEADING
     )]
     pub frozen: bool,
 }
