@@ -433,10 +433,7 @@ fn is_git_reference_query(query: &str) -> bool {
 }
 
 fn infer_package_name_from_url(url: &Url) -> Option<String> {
-    let segment = url
-        .path_segments()?
-        .filter(|segment| !segment.is_empty())
-        .next_back()?;
+    let segment = url.path_segments()?.rfind(|segment| !segment.is_empty())?;
 
     let inferred = segment.strip_suffix(".git").unwrap_or(segment);
     if inferred.is_empty() {
