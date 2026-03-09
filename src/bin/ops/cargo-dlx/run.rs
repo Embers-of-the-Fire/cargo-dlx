@@ -70,17 +70,12 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
 
     let executable = resolve_executable(&install_root.bin_dir(), krate.package.as_deref())?;
 
-    let run_status = if cli.shell_mode {
-        run_via_shell(&executable, args)
-            .map_err(|error| RunError::new(format!("failed to run command in shell: {error}"), 1))?
-    } else {
-        run_direct(&executable, args).map_err(|error| {
-            RunError::new(
-                format!("failed to execute `{}`: {error}", executable.display()),
-                1,
-            )
-        })?
-    };
+    let run_status = run_direct(&executable, args).map_err(|error| {
+        RunError::new(
+            format!("failed to execute `{}`: {error}", executable.display()),
+            1,
+        )
+    })?;
 
     if run_status.success() {
         Ok(Execution::Completed)
@@ -253,27 +248,6 @@ fn run_direct(executable: &Path, args: &[OsString]) -> io::Result<ExitStatus> {
     command.args(args);
 
     command.status()
-}
-
-#[cfg(unix)]
-fn run_via_shell(executable: &Path, args: &[OsString]) -> io::Result<ExitStatus> {
-    let shell = non_empty_env_os("SHELL").unwrap_or_else(|| OsString::from("/bin/sh"));
-
-    let mut command = Command::new(shell);
-    command.arg("-c");
-    command.arg("exec \"$0\" \"$@\"");
-    command.arg(executable);
-    command.args(args);
-
-    command.status()
-}
-
-#[cfg(not(unix))]
-fn run_via_shell(_executable: &Path, _args: &[OsString]) -> io::Result<ExitStatus> {
-    Err(io::Error::new(
-        io::ErrorKind::Unsupported,
-        "`--shell-mode` is currently supported on Unix platforms only",
-    ))
 }
 
 fn resolve_executable(bin_dir: &Path, package_name: Option<&str>) -> Result<PathBuf, RunError> {

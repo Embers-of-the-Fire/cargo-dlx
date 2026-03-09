@@ -9,6 +9,7 @@ Unresolved problems:
 - how does a user update if they do `cargo dlx ripgrep` (no version)
 - how much to mirror `cargo install`s behavior vs do its own thing (e.g. #7169)
 - analysis of prior art and their relevance to Cargo
+- whether to reintroduce `-c` shell execution
 
 ## Packages and Sources
 

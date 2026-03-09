@@ -96,7 +96,6 @@ Default package cache locations:
 
 ## Options
 
-- `-c`, `--shell-mode` executes the installed binary through your shell.
 - `--cache-dir <dir>` sets the package build cache directory (`CARGO_TARGET_DIR` for install).
 - `--no-package-cache` disables package cache usage.
 - `CARGO_DLX_CACHE_DIR` sets the package cache directory when `--cache-dir` is not used.

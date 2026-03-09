@@ -29,13 +29,6 @@ pub struct Cli {
     pub krate_and_args: Vec<OsString>,
 
     #[arg(
-        short = 'c',
-        long = "shell-mode",
-        help = "Run the command inside a shell"
-    )]
-    pub shell_mode: bool,
-
-    #[arg(
         long,
         value_name = "DIR",
         help = "Directory used to cache package build artifacts",
