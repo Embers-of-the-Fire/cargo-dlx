@@ -128,39 +128,6 @@ fn main() {
 }
 
 #[cargo_test]
-fn runs_relative_file_url_binary_from_reference() {
-    let p = project()
-        .file(
-            "src/main.rs",
-            r#"
-fn main() {}
-"#,
-        )
-        .file(
-            "dlx-relative-file-source/Cargo.toml",
-            r#"
-[package]
-name = "dlx-relative-file-source"
-version = "0.1.0"
-edition = "2021"
-"#,
-        )
-        .file(
-            "dlx-relative-file-source/src/main.rs",
-            r#"
-fn main() {
-    println!("hello from relative file ref");
-}
-"#,
-        )
-        .build();
-
-    p.cargo_dlx("file://dlx-relative-file-source")
-        .with_stdout_contains("hello from relative file ref")
-        .run();
-}
-
-#[cargo_test]
 fn runs_path_file_binary_from_reference() {
     let source = project()
         .at("dlx-path-source")

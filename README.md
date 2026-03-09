@@ -55,17 +55,11 @@ cargo dlx 'path+file:///absolute/path/to/my-tool#my-tool@0.1.0'
 cargo dlx 'file+file:///absolute/path/to/my-tool#my-tool'
 ```
 
-Relative local path (supported):
-
-```bash
-cargo dlx 'file://edit#edit'
-cargo dlx 'file://../foo#foo'
-```
-
 ### Notes
 
 - For `registry+...` / `sparse+...`, package name in fragment (`#pkg`) is required.
 - For local file source references, URL query parameters are not supported.
+- Local `file://` URLs must be absolute paths (for example, `file:///path/to/crate`).
 - If you use shell-sensitive characters (like `?` or `#`), quote the whole package spec.
 
 The command installs into a temporary directory, runs the binary, then removes the temporary files.

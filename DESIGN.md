@@ -18,8 +18,8 @@ Implement status:
 
 - ✅ `foo` / `foo@version` (crates.io)
 - ✅ `git+<URL>[?branch=...|tag=...|rev=...][#<pkg>[@<ver>] | #<ver>]`
-- ✅ `file://<path>[#<pkg>[@<ver>] | #<ver>]`
-- ✅ `path+file://<path>[#<pkg>[@<ver>] | #<ver>]`
+- ✅ `file:///<absolute-path>[#<pkg>[@<ver>] | #<ver>]`
+- ✅ `path+file:///<absolute-path>[#<pkg>[@<ver>] | #<ver>]`
 - ✅ `registry+<index-url>#<pkg>[@<ver>]`
 - ✅ `sparse+<index-url>#<pkg>[@<ver>]`
 
@@ -27,6 +27,7 @@ Behavior notes for current implementation:
 
 - For `git+` references, query parameters are translated to `cargo install --branch/--tag/--rev`.
 - For `file://` and `path+file://` references, Cargo is invoked with `cargo install --path`.
+- Local `file://` URLs are absolute-path only.
 - For `registry+` / `sparse+` references, Cargo is invoked with `cargo install --index`.
 - Registry references must include the package in the URL fragment (`#my-crate`).
 - If a git/path fragment contains only a version (`#1.2.3`), package name is inferred from the source path basename when possible.

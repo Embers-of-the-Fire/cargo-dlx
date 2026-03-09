@@ -404,22 +404,6 @@ fn parse_local_file_path(value: &str, url: &Url) -> Result<PathBuf, String> {
         return Ok(path);
     }
 
-    if url.scheme() == "file"
-        && let Some(host) = url.host_str()
-    {
-        let mut path = PathBuf::from(host);
-
-        if let Some(segments) = url.path_segments() {
-            for segment in segments.filter(|segment| !segment.is_empty()) {
-                path.push(segment);
-            }
-        }
-
-        if !path.as_os_str().is_empty() {
-            return Ok(path);
-        }
-    }
-
     Err(format!(
         "package source `{value}` is not a valid local file URL"
     ))
