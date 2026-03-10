@@ -44,19 +44,21 @@ Alternatives:
 - Only accept `<name>[@<ver>]` from the registry
 - Have `<name>` pull from a local `Cargo.lock` like `cargo info`
 
-## Argument Passing and Binary Calling
+## Forwarding arguments
 
-`cargo dlx` is designed to support the following calling:
+Arguments must be forwarded to the underlying binary in a clear and unambiguous manner.
 
-1. Simple, direct forwarding: `cargo dlx [COMMAND ARGS] [<PACKAGE>] [PACKAGE ARGS]`
-2. Calling with explicit binary: `cargo dlx [COMMAND ARGS] [<PACKAGE>] [COMMAND ARGS] -- [ANY COMMAND]`.
+Common challenges include:
+- Overlapping flags between `cargo dlx` and the binary, especially `--help`
 
-Format `1.` is roughly `cargo run -- [PACKAGE ARGS]`.
+Once `cargo dlx` parses the package,
+all following arguments are captured for forwarding to the specified binary.
 
-Format `2.` compiles and installs the package to a temporary directory,
-and inject the binary path to `$PATH`, then execute the arbitrary command.
-
-Implement status: Only `1.` is implemented now.
+The following are roughly equivalent if `cargo run` could work with arbitrary packages:
+```console
+$ cargo dlx [DLX_ARGS] <PACKAGE> [PACKAGE_ARGS]
+$ cargo run -p <PACKAGE> [DLX_ARGS] -- [PACKAGE_ARGS]
+```
 
 ## Caching Strategy
 
