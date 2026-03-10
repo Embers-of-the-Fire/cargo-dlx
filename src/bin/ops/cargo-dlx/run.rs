@@ -8,7 +8,14 @@ use std::{
 
 use super::cli::{Cli, CrateSpec, GitReference, PackageSource};
 
-const CARGO_DLX_CACHE_DIR_ENV: &str = "CARGO_DLX_CACHE_DIR";
+const CARGO_DLX_ROOT_ENV: &str = "CARGO_DLX_ROOT";
+const CARGO_DLX_TEMP_ENV: &str = "CARGO_DLX_TEMP";
+const CARGO_DLX_BUILD_ENV: &str = "CARGO_DLX_BUILD";
+
+const CARGO_DLX_ROOT_DIRNAME: &str = ".cargo-dlx";
+const CARGO_DLX_TEMP_DIRNAME: &str = "tmp";
+const CARGO_DLX_BUILD_DIRNAME: &str = "build";
+const CARGO_DLX_TARGET_DIRNAME: &str = "target";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Execution {
@@ -180,7 +187,7 @@ fn cargo_binary() -> OsString {
 }
 
 fn configure_package_cache(command: &mut Command, cli: &Cli) -> io::Result<()> {
-    let Some(cache_dir) = package_cache_dir(cli) else {
+    let Some(cache_dir) = package_cache_dir(cli)? else {
         return Ok(());
     };
 
@@ -190,53 +197,108 @@ fn configure_package_cache(command: &mut Command, cli: &Cli) -> io::Result<()> {
     Ok(())
 }
 
-fn package_cache_dir(cli: &Cli) -> Option<PathBuf> {
+fn package_cache_dir(cli: &Cli) -> io::Result<Option<PathBuf>> {
     if cli.no_package_cache {
-        return None;
+        return Ok(None);
     }
 
     if let Some(path) = &cli.cache_dir {
-        return Some(path.clone());
+        return Ok(Some(path.clone()));
     }
 
-    package_cache_dir_from_env().or_else(default_package_cache_dir)
+    Ok(Some(resolve_dlx_directories()?.build_target_dir()))
 }
 
-fn package_cache_dir_from_env() -> Option<PathBuf> {
-    non_empty_env_os(CARGO_DLX_CACHE_DIR_ENV).map(PathBuf::from)
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DlxDirectories {
+    root: PathBuf,
+    temp_base: PathBuf,
+    build_base: PathBuf,
+}
+
+impl DlxDirectories {
+    fn build_target_dir(&self) -> PathBuf {
+        self.build_base.join(CARGO_DLX_TARGET_DIRNAME)
+    }
+
+    fn temp_base_dir(&self) -> &Path {
+        &self.temp_base
+    }
+}
+
+fn resolve_dlx_directories() -> io::Result<DlxDirectories> {
+    let cwd = std::env::current_dir()?;
+
+    resolve_dlx_directories_with(
+        &cwd,
+        non_empty_env_os(CARGO_DLX_ROOT_ENV),
+        non_empty_env_os(CARGO_DLX_TEMP_ENV),
+        non_empty_env_os(CARGO_DLX_BUILD_ENV),
+        default_home_dir(),
+    )
+}
+
+fn resolve_dlx_directories_with(
+    cwd: &Path,
+    root_env: Option<OsString>,
+    temp_env: Option<OsString>,
+    build_env: Option<OsString>,
+    home_dir: Option<PathBuf>,
+) -> io::Result<DlxDirectories> {
+    let root = resolve_env_path(cwd, root_env)
+        .or_else(|| default_dlx_root_dir(home_dir))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("could not determine cargo-dlx root directory; set {CARGO_DLX_ROOT_ENV}"),
+            )
+        })?;
+
+    let temp_base =
+        resolve_env_path(cwd, temp_env).unwrap_or_else(|| root.join(CARGO_DLX_TEMP_DIRNAME));
+    let build_base =
+        resolve_env_path(cwd, build_env).unwrap_or_else(|| root.join(CARGO_DLX_BUILD_DIRNAME));
+
+    Ok(DlxDirectories {
+        root,
+        temp_base,
+        build_base,
+    })
+}
+
+fn resolve_env_path(cwd: &Path, env_value: Option<OsString>) -> Option<PathBuf> {
+    let path = env_value.map(PathBuf::from)?;
+
+    if path.is_absolute() {
+        Some(path)
+    } else {
+        Some(cwd.join(path))
+    }
+}
+
+fn default_dlx_root_dir(home_dir: Option<PathBuf>) -> Option<PathBuf> {
+    home_dir.map(|home| home.join(CARGO_DLX_ROOT_DIRNAME))
 }
 
 #[cfg(windows)]
-fn default_package_cache_dir() -> Option<PathBuf> {
-    if let Some(local_app_data) = non_empty_env_os("LOCALAPPDATA") {
-        return Some(
-            PathBuf::from(local_app_data)
-                .join("cargo-dlx")
-                .join("target"),
-        );
+fn default_home_dir() -> Option<PathBuf> {
+    if let Some(user_profile) = non_empty_env_os("USERPROFILE") {
+        return Some(PathBuf::from(user_profile));
     }
 
-    non_empty_env_os("USERPROFILE").map(|user_profile| {
-        PathBuf::from(user_profile)
-            .join("AppData")
-            .join("Local")
-            .join("cargo-dlx")
-            .join("target")
-    })
+    match (non_empty_env_os("HOMEDRIVE"), non_empty_env_os("HOMEPATH")) {
+        (Some(home_drive), Some(home_path)) => {
+            let mut home = PathBuf::from(home_drive);
+            home.push(home_path);
+            Some(home)
+        }
+        _ => None,
+    }
 }
 
 #[cfg(not(windows))]
-fn default_package_cache_dir() -> Option<PathBuf> {
-    if let Some(cache_home) = non_empty_env_os("XDG_CACHE_HOME") {
-        return Some(PathBuf::from(cache_home).join("cargo-dlx").join("target"));
-    }
-
-    non_empty_env_os("HOME").map(|home| {
-        PathBuf::from(home)
-            .join(".cache")
-            .join("cargo-dlx")
-            .join("target")
-    })
+fn default_home_dir() -> Option<PathBuf> {
+    non_empty_env_os("HOME").map(PathBuf::from)
 }
 
 fn non_empty_env_os(name: &str) -> Option<OsString> {
@@ -358,8 +420,7 @@ struct TempInstallRoot {
 
 impl TempInstallRoot {
     fn new() -> io::Result<Self> {
-        let mut base = std::env::temp_dir();
-        base.push("cargo-dlx");
+        let base = resolve_dlx_directories()?.temp_base_dir().to_path_buf();
         fs::create_dir_all(&base)?;
 
         let timestamp_nanos = SystemTime::now()
@@ -368,7 +429,7 @@ impl TempInstallRoot {
             .unwrap_or(0);
 
         for suffix in 0..100 {
-            let candidate = base.join(format!("{}-{timestamp_nanos}-{suffix}", std::process::id()));
+            let candidate = base.join(format!("{timestamp_nanos}-{suffix}"));
 
             match fs::create_dir(&candidate) {
                 Ok(()) => return Ok(Self { path: candidate }),
@@ -400,12 +461,18 @@ impl Drop for TempInstallRoot {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
+    use std::{
+        ffi::OsString,
+        fs,
+        path::{Path, PathBuf},
+    };
 
     use clap::Parser;
 
     use super::super::cli::Cli;
-    use super::{binary_target_name, package_cache_dir, resolve_executable};
+    use super::{
+        binary_target_name, package_cache_dir, resolve_dlx_directories_with, resolve_executable,
+    };
 
     #[test]
     fn picks_single_binary_when_name_is_different() {
@@ -473,7 +540,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            package_cache_dir(&cli),
+            package_cache_dir(&cli).unwrap(),
             Some(PathBuf::from("/tmp/cargo-dlx-package-cache"))
         );
     }
@@ -481,7 +548,95 @@ mod tests {
     #[test]
     fn package_cache_dir_is_disabled_by_flag() {
         let cli = Cli::parse_from(["cargo-dlx", "--no-package-cache", "ripgrep"]);
-        assert_eq!(package_cache_dir(&cli), None);
+        assert_eq!(package_cache_dir(&cli).unwrap(), None);
+    }
+
+    #[test]
+    fn resolves_dlx_directories_from_home_by_default() {
+        let directories = resolve_dlx_directories_with(
+            Path::new("workspace"),
+            None,
+            None,
+            None,
+            Some(PathBuf::from("home")),
+        )
+        .unwrap();
+
+        assert_eq!(directories.root, PathBuf::from("home").join(".cargo-dlx"));
+        assert_eq!(
+            directories.temp_base,
+            PathBuf::from("home").join(".cargo-dlx").join("tmp")
+        );
+        assert_eq!(
+            directories.build_target_dir(),
+            PathBuf::from("home")
+                .join(".cargo-dlx")
+                .join("build")
+                .join("target")
+        );
+    }
+
+    #[test]
+    fn resolves_dlx_directories_from_root_override() {
+        let directories = resolve_dlx_directories_with(
+            Path::new("workspace"),
+            Some(OsString::from("custom-root")),
+            None,
+            None,
+            Some(PathBuf::from("home")),
+        )
+        .unwrap();
+
+        assert_eq!(
+            directories.root,
+            PathBuf::from("workspace").join("custom-root")
+        );
+        assert_eq!(
+            directories.temp_base,
+            PathBuf::from("workspace").join("custom-root").join("tmp")
+        );
+        assert_eq!(
+            directories.build_target_dir(),
+            PathBuf::from("workspace")
+                .join("custom-root")
+                .join("build")
+                .join("target")
+        );
+    }
+
+    #[test]
+    fn resolves_dlx_directories_with_temp_and_build_overrides() {
+        let directories = resolve_dlx_directories_with(
+            Path::new("workspace"),
+            Some(OsString::from("custom-root")),
+            Some(OsString::from("runtime-temp")),
+            Some(OsString::from("build-cache")),
+            Some(PathBuf::from("home")),
+        )
+        .unwrap();
+
+        assert_eq!(
+            directories.temp_base,
+            PathBuf::from("workspace").join("runtime-temp")
+        );
+        assert_eq!(
+            directories.build_target_dir(),
+            PathBuf::from("workspace")
+                .join("build-cache")
+                .join("target")
+        );
+    }
+
+    #[test]
+    fn errors_when_no_root_or_home_is_available() {
+        let error = resolve_dlx_directories_with(Path::new("workspace"), None, None, None, None)
+            .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("could not determine cargo-dlx root directory")
+        );
     }
 
     fn new_temp_dir(label: &str) -> PathBuf {

@@ -49,16 +49,38 @@ Implement status: Only `1.` is implemented now.
 
 ## Caching Strategy
 
-`cargo dlx` would maintain a (configurable) global cache directory to compile a specific package.
-The binary output is installed to another temporary directory to be executed, and is not cached.
+`cargo dlx` maintains a global runtime root, similar to Cargo's `~/.cargo` layout.
+
+Default root:
+
+- `CARGO_DLX_ROOT`, or fallback `~/.cargo-dlx`
+
+Directory layout under the root:
+
+- `tmp/<timestamp>`: per-run installation runtime root (ephemeral)
+- `build/target`: Cargo build cache directory (`CARGO_TARGET_DIR`)
+
+Overrides:
+
+- `CARGO_DLX_TEMP`: overrides the temp runtime base directory (`tmp`)
+- `CARGO_DLX_BUILD`: overrides the build cache base directory (`build`)
+
+CLI overrides:
+
+- `--cache-dir <DIR>` can still override the Cargo build target directory directly.
+
+The installed runnable binaries remain ephemeral and are not cached between invocations.
 
 ## Garbage Collection Strategy
 
-`cargo dlx` does not clean the temporary directory after run,
-as some package may generate files within the working directory.
+Current behavior:
 
-However, `cargo dlx` offers a `--clear` option to perform garbage collection.
-This would delete all temporary directory and the global build cache.
+- `tmp/<timestamp>` installation roots are removed automatically when the process exits.
+- build cache (`build/target`) remains for reuse across invocations.
+
+Planned behavior:
+
+- a future `--clear` option could delete temporary directories and build cache.
 
 Implement status: Not implemented now.
 
