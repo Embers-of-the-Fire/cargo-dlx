@@ -80,29 +80,41 @@ Alternatives:
 - Have a syntax to mix this in with the package selection
 - If a [`last`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last) argument is present, the usage becomes `cargo dlx [DLX_ARGS] <PACKAGE> <BIN> -- [PACKAGE_ARGS]`
 
-## Caching Strategy
+## Caching strategy
 
-`cargo dlx` maintains a global runtime root, similar to Cargo's `~/.cargo` layout.
+Users want
+- performance: repeated calls to `cargo dlx foo` doing the minimal work possible
+- parallelism: what happens when two `cargo dlx` calls are run in parallel
+- disk space: least used
+- upgrades: getting newer versions of under-specified package versions
+- compiler: getting the benefits of the latest compiler
+- settings: able to specify the binary, features, profile, etc
 
-Default root:
+These are inherently contradictory.
 
-- `CARGO_DLX_ROOT`, or fallback `~/.cargo-dlx`
+`cargo dlx` builds in a cross-package `target-dir` and installs to an ephemeral location.
+- performance: repeated calls leverage the fingerprint which has some overhead that scales with application complexity
+- parallelism: builds, even no-op builds, block on each other
+- disk space: large intermediate build artifacts are retained but sharing is done between packages and settings
+- upgrades: latest version is always used
+- compiler: current compiler is always used
+- settings: changing a setting only rebuilds as much as is needed
 
-Directory layout under the root:
-
-- `tmp/<timestamp>`: per-run installation runtime root (ephemeral)
-- `build/target`: Cargo build cache directory (`CARGO_TARGET_DIR`)
-
-Overrides:
-
-- `CARGO_DLX_TEMP`: overrides the temp runtime base directory (`tmp`)
-- `CARGO_DLX_BUILD`: overrides the build cache base directory (`build`)
-
-CLI overrides:
-
-- `--cache-dir <DIR>` can still override the Cargo build target directory directly.
-
-The installed runnable binaries remain ephemeral and are not cached between invocations.
+Alternatives:
+- Per-package `target-dir`s
+  - performance: unchanged
+  - parallelism: only blocking between runs of the same package
+  - disk space: no reuse between different packages but reuse is likely limited always
+  - upgrades: unchanged
+  - compiler: unchanged
+  - settings: unchanged
+- Use an ephemeral `target-dir`, installing into a location under a hash of the `dlx` inputs
+  - performance: repeated have a small constant overhead
+  - parallelism: no blocking between unique dlx inputs
+  - disk space: no extra disk space is used
+  - upgrades: mechanism is need to request an upgrade
+  - compiler: mechanism is need to request a rebuild
+  - settings: changing a setting causes a full rebuild
 
 ## Garbage Collection Strategy
 
