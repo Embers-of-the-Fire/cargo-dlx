@@ -116,18 +116,15 @@ Alternatives:
   - compiler: mechanism is need to request a rebuild
   - settings: changing a setting causes a full rebuild
 
-## Garbage Collection Strategy
+## Garbage collection strategy
 
-Current behavior:
+As part of using the least disk space possible,
+there needs to be a way to clean up binaries that are no longer used.
 
-- `tmp/<timestamp>` installation roots are removed automatically when the process exits.
-- build cache (`build/target`) remains for reuse across invocations.
-
-Planned behavior:
-
-- a future `--clear` option could delete temporary directories and build cache.
-
-Implement status: Not implemented now.
+With the current caching strategy,
+there are two cache locations:
+- the ephemeral install location: auto-cleaned up on completion
+- `target-dir`: deferred to [rust-lang/cargo#5026](https://github.com/rust-lang/cargo/issues/5026)
 
 ## Profile
 
