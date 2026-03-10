@@ -60,6 +60,26 @@ $ cargo dlx [DLX_ARGS] <PACKAGE> [PACKAGE_ARGS]
 $ cargo run -p <PACKAGE> [DLX_ARGS] -- [PACKAGE_ARGS]
 ```
 
+## Multi-binary packages
+
+While most packages have just one binary,
+that isn't an inherent requirement.
+In addition, users may wish to run an example.
+
+`cargo dlx` will use the Cargo standard `--bin` and `--example` arguments to specify a specific binary to build and run.
+
+Cargo semantics:
+- a single `[[bin]]` is considered the default
+- if multiple `[[bin]]`s are present, `package.default-run` can specify the default
+- if there are multiple `[[bin]]`s without a default, error and list all `[[bin]]`s
+- `--bin` or `--example` without a name lists available names
+
+Implement status: Not implemented now.
+
+Alternatives:
+- Have a syntax to mix this in with the package selection
+- If a [`last`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last) argument is present, the usage becomes `cargo dlx [DLX_ARGS] <PACKAGE> <BIN> -- [PACKAGE_ARGS]`
+
 ## Caching Strategy
 
 `cargo dlx` maintains a global runtime root, similar to Cargo's `~/.cargo` layout.
@@ -94,14 +114,6 @@ Current behavior:
 Planned behavior:
 
 - a future `--clear` option could delete temporary directories and build cache.
-
-Implement status: Not implemented now.
-
-## Multiple Binaries
-
-`cargo dlx` would support a `--bin`/`--example` for packages to specify the target binary to execute.
-If direct forwarding is used and no binary is specified, an error will be generated.
-If the user decided to use the explicit binary calling, a warning will be generated and all binaries would be compiled.
 
 Implement status: Not implemented now.
 
