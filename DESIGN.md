@@ -3,6 +3,11 @@
 This document lists some of the fundamental design of `cargo dlx` command.
 Not all features listed below are implemented now.
 
+## Goal
+
+This is a polyfill for what could be merged into Cargo.
+Design decisions should align with existing design elements in Cargo.
+
 ## Open questions
 
 - relative importance of a `cargox` alias for `cargo dlx`
