@@ -31,6 +31,15 @@ pub struct Cli {
 
     #[arg(
         long,
+        value_name = "PROFILE-NAME",
+        default_value = "release",
+        help = "Build artifacts with the specified profile",
+        help_heading = COMPILATION_HEADING,
+    )]
+    pub profile: String,
+
+    #[arg(
+        long,
         value_name = "DIR",
         help = "Directory used to cache package build artifacts",
         help_heading = COMPILATION_HEADING

@@ -94,12 +94,12 @@ Implement status: Not implemented now.
 
 ## Profile
 
-`cargo dlx` would offer a default `release` profile, and should be configurable via:
+`cargo dlx` defaults to the `release` profile, and is configurable via:
 
-- CLI argument to specify a TOML configuration file.
-- Global configuration file.
+- ✅ `--profile`
 
-Implement status: Not implemented now.
+Whether the default can be overriden in a config file is dependent on feedback,
+including gathering use cases for it.
 
 ## Package-Specific Configuration
 

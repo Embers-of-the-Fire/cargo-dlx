@@ -147,6 +147,9 @@ fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<Exit
     command.arg("--root");
     command.arg(root);
 
+    command.arg("--profile");
+    command.arg(&cli.profile);
+
     if let Some(version_req) = &krate.version {
         command.arg("--version");
         command.arg(version_req.to_string());
