@@ -64,7 +64,7 @@ cargo dlx 'file+file:///absolute/path/to/my-tool#my-tool'
 
 The command installs into a temporary directory, runs the binary, then removes the temporary files.
 `cargo-dlx` invokes the Cargo executable from `$CARGO` when set, otherwise `cargo` from `PATH`.
-Package build artifacts are cached in a persistent Cargo target directory (default under cache home)
+Package build artifacts are cached in a persistent Cargo target directory (default under `~/.cargo-dlx/build/target`)
 to speed up repeated runs, while installed binaries stay temporary.
 
 ## Cache Strategy
@@ -72,11 +72,21 @@ to speed up repeated runs, while installed binaries stay temporary.
 `cargo-dlx` caches **package build artifacts** only (via `CARGO_TARGET_DIR`) to speed up repeated runs.
 It does **not** cache installed runnable binaries between invocations.
 
-Cache directory selection (highest priority first):
+Default runtime layout (under `$CARGO_DLX_ROOT`, which defaults to `~/.cargo-dlx`):
+
+- Temporary install roots: `$CARGO_DLX_ROOT/tmp/<timestamp>`
+- Build cache target directory: `$CARGO_DLX_ROOT/build/target`
+
+Build cache target directory selection (highest priority first):
 
 1. `--cache-dir <DIR>`
-2. `CARGO_DLX_CACHE_DIR`
-3. Platform default cache path
+2. `CARGO_DLX_BUILD`
+3. `CARGO_DLX_ROOT/build`
+
+Temporary install base directory selection (highest priority first):
+
+1. `CARGO_DLX_TEMP`
+2. `CARGO_DLX_ROOT/tmp`
 
 You can disable package caching with `--no-package-cache`.
 
@@ -89,16 +99,14 @@ You can disable package caching with `--no-package-cache`.
 - **Cargo global cache**: Cargo's own registry/git cache remains managed by Cargo (typically under
   `CARGO_HOME`, for example `~/.cargo`).
 
-Default package cache locations:
-
-- Unix: `$XDG_CACHE_HOME/cargo-dlx/target` or fallback `$HOME/.cache/cargo-dlx/target`
-- Windows: `%LOCALAPPDATA%\\cargo-dlx\\target` or fallback `%USERPROFILE%\\AppData\\Local\\cargo-dlx\\target`
-
 ## Options
 
 - `--cache-dir <dir>` sets the package build cache directory (`CARGO_TARGET_DIR` for install).
 - `--no-package-cache` disables package cache usage.
-- `CARGO_DLX_CACHE_DIR` sets the package cache directory when `--cache-dir` is not used.
+- `CARGO_DLX_ROOT` sets the cargo-dlx runtime root directory (defaults to `~/.cargo-dlx`).
+- `CARGO_DLX_TEMP` sets the temporary install base directory (defaults to `$CARGO_DLX_ROOT/tmp`).
+- `CARGO_DLX_BUILD` sets the build cache base directory (defaults to `$CARGO_DLX_ROOT/build`,
+  with `target` as its Cargo target subdirectory).
 - Rust feature and lock/network flags are forwarded to `cargo install`:
   - `-F`, `--features`
   - `--all-features`
