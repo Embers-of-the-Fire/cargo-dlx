@@ -16,9 +16,11 @@ Design decisions should align with existing design elements in Cargo.
 - analysis of prior art and their relevance to Cargo
 - whether to reintroduce `-c` shell execution
 
-## Packages and Sources
+## Specifying the package to run
 
-`cargo dlx` is designed to support the standard [Package Id Specifications](https://doc.rust-lang.org/cargo/reference/pkgid-spec.html) of Cargo.
+To allow specifying packages from any dependency source,
+`cargo dlx` accepts Cargo's
+[Package Id Specifications](https://doc.rust-lang.org/cargo/reference/pkgid-spec.html) format.
 
 Implement status:
 
@@ -37,6 +39,10 @@ Behavior notes for current implementation:
 - For `registry+` / `sparse+` references, Cargo is invoked with `cargo install --index`.
 - Registry references must include the package in the URL fragment (`#my-crate`).
 - If a git/path fragment contains only a version (`#1.2.3`), package name is inferred from the source path basename when possible.
+
+Alternatives:
+- Only accept `<name>[@<ver>]` from the registry
+- Have `<name>` pull from a local `Cargo.lock` like `cargo info`
 
 ## Argument Passing and Binary Calling
 
