@@ -1,4 +1,4 @@
-# CLI Api Design
+# CLI Design
 
 This document lists some of the fundamental design of `cargo dlx` command.
 Not all features listed below are implemented now.
