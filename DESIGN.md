@@ -3,7 +3,7 @@
 This document lists some of the fundamental design of `cargo dlx` command.
 Not all features listed below are implemented now.
 
-Unresolved problems:
+## Open questions
 
 - relative importance of a `cargox` alias for `cargo dlx`
 - how does a user update if they do `cargo dlx ripgrep` (no version)
