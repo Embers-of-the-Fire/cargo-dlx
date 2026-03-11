@@ -1,7 +1,7 @@
 use std::fs;
 
 use cargo_test_macro::cargo_test;
-use cargo_test_support::{git, paths::CargoPathExt, project, registry::Package};
+use cargo_test_support::{git, paths::CargoPathExt, project, registry::Package, str};
 
 use crate::ProjectExt;
 
@@ -275,6 +275,145 @@ fn main() {
         "did not expect root-derived build path at {}",
         root_build.display()
     );
+}
+
+#[cargo_test]
+fn clear_removes_root_temp_and_build_cache() {
+    let p = project().build();
+    let dlx_root = p.root().join(".test-cargo-dlx-clear-root");
+    let temp_base = dlx_root.join("tmp");
+    let build_target = dlx_root.join("build").join("target");
+
+    fs::create_dir_all(temp_base.join("stale")).unwrap();
+    fs::create_dir_all(&build_target).unwrap();
+    fs::write(temp_base.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(build_target.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .run();
+
+    assert!(!temp_base.exists());
+    assert!(!build_target.exists());
+}
+
+#[cargo_test]
+fn clear_respects_temp_and_build_overrides() {
+    let p = project().build();
+    let dlx_root = p.root().join(".test-cargo-dlx-clear-root-unused");
+    let dlx_temp = p.root().join(".test-cargo-dlx-clear-temp");
+    let dlx_build = p.root().join(".test-cargo-dlx-clear-build");
+
+    let root_temp = dlx_root.join("tmp");
+    let root_build_target = dlx_root.join("build").join("target");
+    let override_build_target = dlx_build.join("target");
+
+    fs::create_dir_all(root_temp.join("keep")).unwrap();
+    fs::create_dir_all(&root_build_target).unwrap();
+    fs::create_dir_all(dlx_temp.join("stale")).unwrap();
+    fs::create_dir_all(&override_build_target).unwrap();
+
+    fs::write(root_temp.join("keep").join("artifact"), b"x").unwrap();
+    fs::write(root_build_target.join("artifact"), b"x").unwrap();
+    fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(override_build_target.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .env("CARGO_DLX_TEMP", &dlx_temp)
+        .env("CARGO_DLX_BUILD", &dlx_build)
+        .run();
+
+    assert!(!dlx_temp.exists());
+    assert!(!override_build_target.exists());
+    assert!(root_temp.exists());
+    assert!(root_build_target.exists());
+}
+
+#[cargo_test]
+fn clear_works_with_temp_and_build_overrides_without_root_or_home() {
+    let p = project().build();
+    let dlx_temp = p.root().join(".test-cargo-dlx-clear-no-home-temp");
+    let dlx_build = p.root().join(".test-cargo-dlx-clear-no-home-build");
+    let build_target = dlx_build.join("target");
+
+    fs::create_dir_all(dlx_temp.join("stale")).unwrap();
+    fs::create_dir_all(&build_target).unwrap();
+    fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(build_target.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear")
+        .env("CARGO_DLX_TEMP", &dlx_temp)
+        .env("CARGO_DLX_BUILD", &dlx_build)
+        .env("HOME", "")
+        .env("USERPROFILE", "")
+        .env("HOMEDRIVE", "")
+        .env("HOMEPATH", "")
+        .run();
+
+    assert!(!dlx_temp.exists());
+    assert!(!build_target.exists());
+}
+
+#[cargo_test]
+fn clear_works_with_temp_and_explicit_cache_without_root_or_home() {
+    let p = project().build();
+    let dlx_temp = p.root().join(".test-cargo-dlx-clear-no-home-temp");
+    let explicit_cache_dir = p.root().join("explicit-cache");
+
+    fs::create_dir_all(dlx_temp.join("stale")).unwrap();
+    fs::create_dir_all(&explicit_cache_dir).unwrap();
+    fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(explicit_cache_dir.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear --cache-dir explicit-cache")
+        .env("CARGO_DLX_TEMP", &dlx_temp)
+        .env("HOME", "")
+        .env("USERPROFILE", "")
+        .env("HOMEDRIVE", "")
+        .env("HOMEPATH", "")
+        .run();
+
+    assert!(!dlx_temp.exists());
+    assert!(!explicit_cache_dir.exists());
+}
+
+#[cargo_test]
+fn clear_rejects_package_arguments() {
+    let p = project().build();
+
+    p.cargo_dlx("--clear ripgrep")
+        .with_status(2)
+        .with_stdout_data(str![""])
+        .with_stderr_data(str![[r#"
+[ERROR] the argument '--clear' cannot be used with '[CRATE[@<VER>]] [ARG]...'
+
+Usage: cargo dlx --clear [CRATE[@<VER>]] [ARG]...
+
+For more information, try '--help'.
+
+"#]])
+        .run();
+}
+
+#[cargo_test]
+fn clear_uses_explicit_cache_dir_instead_of_root_build_cache() {
+    let p = project().build();
+    let dlx_root = p.root().join(".test-cargo-dlx-clear-explicit-root");
+    let root_build_target = dlx_root.join("build").join("target");
+    let explicit_cache_dir = p.root().join("explicit-cache");
+
+    fs::create_dir_all(&root_build_target).unwrap();
+    fs::create_dir_all(&explicit_cache_dir).unwrap();
+    fs::write(root_build_target.join("artifact"), b"x").unwrap();
+    fs::write(explicit_cache_dir.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear --cache-dir explicit-cache")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .run();
+
+    assert!(!explicit_cache_dir.exists());
+    assert!(root_build_target.exists());
 }
 
 fn temp_dir_is_empty(path: &std::path::Path) -> bool {

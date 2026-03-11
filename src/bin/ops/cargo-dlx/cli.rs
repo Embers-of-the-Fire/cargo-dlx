@@ -21,10 +21,27 @@ const SUBCOMMAND_NAME: &str = "dlx";
 )]
 pub struct Cli {
     #[arg(
+        long,
+        help = "Delete all cargo-dlx temporary directories and package build cache",
+        conflicts_with_all = [
+            "krate_and_args",
+            "no_package_cache",
+            "features",
+            "all_features",
+            "no_default_features",
+            "locked",
+            "offline",
+            "frozen"
+        ]
+    )]
+    pub clear: bool,
+
+    #[arg(
         value_names = ["CRATE[@<VER>]", "ARG"],
         trailing_var_arg = true,
         allow_hyphen_values = true,
         num_args = 1..,
+        required_unless_present = "clear",
         help = "Package to download, compile, and execute"
     )]
     pub krate_and_args: Vec<OsString>,
@@ -680,5 +697,29 @@ mod tests {
 
         assert_eq!(cli.cache_dir, Some(PathBuf::from("/tmp/cargo-dlx-cache")));
         assert!(!cli.no_package_cache);
+    }
+
+    #[test]
+    fn parses_clear_without_crate_arguments() {
+        let cli = Cli::parse_from(["cargo-dlx", "--clear"]);
+
+        assert!(cli.clear);
+        assert!(cli.krate_and_args.is_empty());
+    }
+
+    #[test]
+    fn parses_clear_with_explicit_cache_dir() {
+        let cli = Cli::parse_from(["cargo-dlx", "--clear", "--cache-dir", "/tmp/dlx-cache"]);
+
+        assert!(cli.clear);
+        assert_eq!(cli.cache_dir, Some(PathBuf::from("/tmp/dlx-cache")));
+        assert!(cli.krate_and_args.is_empty());
+    }
+
+    #[test]
+    fn rejects_clear_with_positional_arguments() {
+        let error = Cli::try_parse_from(["cargo-dlx", "--clear", "ripgrep"]).unwrap_err();
+
+        assert!(error.to_string().contains("cannot be used with"));
     }
 }

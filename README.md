@@ -62,7 +62,8 @@ cargo dlx 'file+file:///absolute/path/to/my-tool#my-tool'
 - Local `file://` URLs must be absolute paths (for example, `file:///path/to/crate`).
 - If you use shell-sensitive characters (like `?` or `#`), quote the whole package spec.
 
-The command installs into a temporary directory, runs the binary, then removes the temporary files.
+The command installs into a temporary directory, runs the binary, then removes the temporary install root.
+`cargo dlx --clear` can be used to remove cached package artifacts and any stale temporary roots.
 `cargo-dlx` invokes the Cargo executable from `$CARGO` when set, otherwise `cargo` from `PATH`.
 Package build artifacts are cached in a persistent Cargo target directory (default under `~/.cargo-dlx/build/target`)
 to speed up repeated runs, while installed binaries stay temporary.
@@ -92,7 +93,7 @@ You can disable package caching with `--no-package-cache`.
 
 ## Storage Strategy
 
-- **Ephemeral install root**: each invocation installs binaries into a temporary `--root` directory,
+- **Temporary install root**: each invocation installs binaries into a temporary `--root` directory,
   executes the selected binary, then removes that directory on exit.
 - **Persistent package cache**: build/intermediate artifacts are stored in the package cache directory
   (when enabled) and reused by future invocations.
@@ -103,6 +104,8 @@ You can disable package caching with `--no-package-cache`.
 
 - `--cache-dir <dir>` sets the package build cache directory (`CARGO_TARGET_DIR` for install).
 - `--no-package-cache` disables package cache usage.
+- `--clear` clears temporary install roots and package build cache paths derived from
+  `CARGO_DLX_ROOT`/`CARGO_DLX_TEMP`/`CARGO_DLX_BUILD` (or the directory passed via `--cache-dir`).
 - `CARGO_DLX_ROOT` sets the cargo-dlx runtime root directory (defaults to `~/.cargo-dlx`).
 - `CARGO_DLX_TEMP` sets the temporary install base directory (defaults to `$CARGO_DLX_ROOT/tmp`).
 - `CARGO_DLX_BUILD` sets the build cache base directory (defaults to `$CARGO_DLX_ROOT/build`,
