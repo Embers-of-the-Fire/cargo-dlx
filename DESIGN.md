@@ -1,9 +1,14 @@
-# CLI Api Design
+# CLI Design
 
 This document lists some of the fundamental design of `cargo dlx` command.
 Not all features listed below are implemented now.
 
-Unresolved problems:
+## Goal
+
+This is a polyfill for what could be merged into Cargo.
+Design decisions should align with existing design elements in Cargo.
+
+## Open questions
 
 - relative importance of a `cargox` alias for `cargo dlx`
 - how does a user update if they do `cargo dlx ripgrep` (no version)
@@ -11,9 +16,11 @@ Unresolved problems:
 - analysis of prior art and their relevance to Cargo
 - whether to reintroduce `-c` shell execution
 
-## Packages and Sources
+## Specifying the package to run
 
-`cargo dlx` is designed to support the standard [Package Id Specifications](https://doc.rust-lang.org/cargo/reference/pkgid-spec.html) of Cargo.
+To allow specifying packages from any dependency source,
+`cargo dlx` accepts Cargo's
+[Package Id Specifications](https://doc.rust-lang.org/cargo/reference/pkgid-spec.html) format.
 
 Implement status:
 
@@ -33,64 +40,91 @@ Behavior notes for current implementation:
 - Registry references must include the package in the URL fragment (`#my-crate`).
 - If a git/path fragment contains only a version (`#1.2.3`), package name is inferred from the source path basename when possible.
 
-## Argument Passing and Binary Calling
+Alternatives:
+- Only accept `<name>[@<ver>]` from the registry
+- Have `<name>` pull from a local `Cargo.lock` like `cargo info`
 
-`cargo dlx` is designed to support the following calling:
+## Forwarding arguments
 
-1. Simple, direct forwarding: `cargo dlx [COMMAND ARGS] [<PACKAGE>] [PACKAGE ARGS]`
-2. Calling with explicit binary: `cargo dlx [COMMAND ARGS] [<PACKAGE>] [COMMAND ARGS] -- [ANY COMMAND]`.
+Arguments must be forwarded to the underlying binary in a clear and unambiguous manner.
 
-Format `1.` is roughly `cargo run -- [PACKAGE ARGS]`.
+Common challenges include:
+- Overlapping flags between `cargo dlx` and the binary, especially `--help`
 
-Format `2.` compiles and installs the package to a temporary directory,
-and inject the binary path to `$PATH`, then execute the arbitrary command.
+Once `cargo dlx` parses the package,
+all following arguments are captured for forwarding to the specified binary.
 
-Implement status: Only `1.` is implemented now.
+The following are roughly equivalent if `cargo run` could work with arbitrary packages:
+```console
+$ cargo dlx [DLX_ARGS] <PACKAGE> [PACKAGE_ARGS]
+$ cargo run -p <PACKAGE> [DLX_ARGS] -- [PACKAGE_ARGS]
+```
 
-## Caching Strategy
+## Multi-binary packages
 
-`cargo dlx` maintains a global runtime root, similar to Cargo's `~/.cargo` layout.
+While most packages have just one binary,
+that isn't an inherent requirement.
+In addition, users may wish to run an example.
 
-Default root:
+`cargo dlx` will use the Cargo standard `--bin` and `--example` arguments to specify a specific binary to build and run.
 
-- `CARGO_DLX_ROOT`, or fallback `~/.cargo-dlx`
-
-Directory layout under the root:
-
-- `tmp/<timestamp>`: per-run installation runtime root (ephemeral)
-- `build/target`: Cargo build cache directory (`CARGO_TARGET_DIR`)
-
-Overrides:
-
-- `CARGO_DLX_TEMP`: overrides the temp runtime base directory (`tmp`)
-- `CARGO_DLX_BUILD`: overrides the build cache base directory (`build`)
-
-CLI overrides:
-
-- `--cache-dir <DIR>` can still override the Cargo build target directory directly.
-
-The installed runnable binaries remain ephemeral and are not cached between invocations.
-
-## Garbage Collection Strategy
-
-Current behavior:
-
-- `tmp/<timestamp>` installation roots are removed automatically when the process exits.
-- build cache (`build/target`) remains for reuse across invocations.
-
-Planned behavior:
-
-- a future `--clear` option could delete temporary directories and build cache.
+Cargo semantics:
+- a single `[[bin]]` is considered the default
+- if multiple `[[bin]]`s are present, `package.default-run` can specify the default
+- if there are multiple `[[bin]]`s without a default, error and list all `[[bin]]`s
+- `--bin` or `--example` without a name lists available names
 
 Implement status: Not implemented now.
 
-## Multiple Binaries
+Alternatives:
+- Have a syntax to mix this in with the package selection
+- If a [`last`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last) argument is present, the usage becomes `cargo dlx [DLX_ARGS] <PACKAGE> <BIN> -- [PACKAGE_ARGS]`
 
-`cargo dlx` would support a `--bin`/`--example` for packages to specify the target binary to execute.
-If direct forwarding is used and no binary is specified, an error will be generated.
-If the user decided to use the explicit binary calling, a warning will be generated and all binaries would be compiled.
+## Caching strategy
 
-Implement status: Not implemented now.
+Users want
+- performance: repeated calls to `cargo dlx foo` doing the minimal work possible
+- parallelism: what happens when two `cargo dlx` calls are run in parallel
+- disk space: least used
+- upgrades: getting newer versions of under-specified package versions
+- compiler: getting the benefits of the latest compiler
+- settings: able to specify the binary, features, profile, etc
+
+These are inherently contradictory.
+
+`cargo dlx` builds in a cross-package `target-dir` and installs to an ephemeral location.
+- performance: repeated calls leverage the fingerprint which has some overhead that scales with application complexity
+- parallelism: builds, even no-op builds, block on each other
+- disk space: large intermediate build artifacts are retained but sharing is done between packages and settings
+- upgrades: latest version is always used
+- compiler: current compiler is always used
+- settings: changing a setting only rebuilds as much as is needed
+
+Alternatives:
+- Per-package `target-dir`s
+  - performance: unchanged
+  - parallelism: only blocking between runs of the same package
+  - disk space: no reuse between different packages but reuse is likely limited always
+  - upgrades: unchanged
+  - compiler: unchanged
+  - settings: unchanged
+- Use an ephemeral `target-dir`, installing into a location under a hash of the `dlx` inputs
+  - performance: repeated have a small constant overhead
+  - parallelism: no blocking between unique dlx inputs
+  - disk space: no extra disk space is used
+  - upgrades: mechanism is need to request an upgrade
+  - compiler: mechanism is need to request a rebuild
+  - settings: changing a setting causes a full rebuild
+
+## Garbage collection strategy
+
+As part of using the least disk space possible,
+there needs to be a way to clean up binaries that are no longer used.
+
+With the current caching strategy,
+there are two cache locations:
+- the ephemeral install location: auto-cleaned up on completion
+- `target-dir`: deferred to [rust-lang/cargo#5026](https://github.com/rust-lang/cargo/issues/5026)
 
 ## Profile
 
