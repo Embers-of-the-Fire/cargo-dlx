@@ -79,6 +79,32 @@ Current behavior:
 - build cache (`build/target`) remains for reuse across invocations.
 - `--clear` removes temporary install roots and package cache directories.
 
+### `--clear` Logic
+
+`--clear` resolves directories independently and does not require a root when explicit temp/build paths are available.
+
+1. Resolve `temp_base` in this order:
+   - `CARGO_DLX_TEMP`
+   - `<root>/tmp` where `<root>` is from `CARGO_DLX_ROOT` or `~/.cargo-dlx`
+   - otherwise: error (`could not determine cargo-dlx temporary directory`)
+
+2. Resolve `build_target` in this order:
+   - `--cache-dir <DIR>` (used directly)
+   - `CARGO_DLX_BUILD/target`
+   - `<root>/build/target` where `<root>` is from `CARGO_DLX_ROOT` or `~/.cargo-dlx`
+   - otherwise: error (`could not determine cargo-dlx build cache directory`)
+
+3. Path normalization rules:
+   - for env-based paths (`CARGO_DLX_TEMP`, `CARGO_DLX_BUILD`, `CARGO_DLX_ROOT`), absolute paths are used as-is, and relative paths are resolved against current working directory.
+   - `--cache-dir` is used as provided.
+
+4. Deletion steps:
+   - remove `temp_base` recursively; ignore `NotFound`
+   - if `build_target == temp_base`, stop (avoid duplicate delete)
+   - otherwise remove `build_target` recursively; ignore `NotFound`
+
+This means environments with no `HOME` and no `CARGO_DLX_ROOT` still support `cargo dlx --clear` when both temporary and build locations are explicit (via `CARGO_DLX_TEMP` + `CARGO_DLX_BUILD`, or `CARGO_DLX_TEMP` + `--cache-dir`).
+
 ## Multiple Binaries
 
 `cargo dlx` would support a `--bin`/`--example` for packages to specify the target binary to execute.

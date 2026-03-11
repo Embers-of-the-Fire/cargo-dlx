@@ -331,6 +331,54 @@ fn clear_respects_temp_and_build_overrides() {
 }
 
 #[cargo_test]
+fn clear_works_with_temp_and_build_overrides_without_root_or_home() {
+    let p = project().build();
+    let dlx_temp = p.root().join(".test-cargo-dlx-clear-no-home-temp");
+    let dlx_build = p.root().join(".test-cargo-dlx-clear-no-home-build");
+    let build_target = dlx_build.join("target");
+
+    fs::create_dir_all(dlx_temp.join("stale")).unwrap();
+    fs::create_dir_all(&build_target).unwrap();
+    fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(build_target.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear")
+        .env("CARGO_DLX_TEMP", &dlx_temp)
+        .env("CARGO_DLX_BUILD", &dlx_build)
+        .env("HOME", "")
+        .env("USERPROFILE", "")
+        .env("HOMEDRIVE", "")
+        .env("HOMEPATH", "")
+        .run();
+
+    assert!(!dlx_temp.exists());
+    assert!(!build_target.exists());
+}
+
+#[cargo_test]
+fn clear_works_with_temp_and_explicit_cache_without_root_or_home() {
+    let p = project().build();
+    let dlx_temp = p.root().join(".test-cargo-dlx-clear-no-home-temp");
+    let explicit_cache_dir = p.root().join("explicit-cache");
+
+    fs::create_dir_all(dlx_temp.join("stale")).unwrap();
+    fs::create_dir_all(&explicit_cache_dir).unwrap();
+    fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(explicit_cache_dir.join("artifact"), b"x").unwrap();
+
+    p.cargo_dlx("--clear --cache-dir explicit-cache")
+        .env("CARGO_DLX_TEMP", &dlx_temp)
+        .env("HOME", "")
+        .env("USERPROFILE", "")
+        .env("HOMEDRIVE", "")
+        .env("HOMEPATH", "")
+        .run();
+
+    assert!(!dlx_temp.exists());
+    assert!(!explicit_cache_dir.exists());
+}
+
+#[cargo_test]
 fn clear_rejects_package_arguments() {
     let p = project().build();
 

@@ -97,36 +97,32 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
 }
 
 fn clear_cached_data(cli: &Cli) -> Result<(), RunError> {
-    let directories = resolve_dlx_directories().map_err(|error| {
+    let directories = resolve_clear_directories(cli).map_err(|error| {
         RunError::new(
             format!("failed to resolve cargo-dlx cache directories: {error}"),
             1,
         )
     })?;
 
-    remove_directory_if_exists(directories.temp_base_dir()).map_err(|error| {
+    remove_directory_if_exists(&directories.temp_base).map_err(|error| {
         RunError::new(
             format!(
                 "failed to clear temporary install roots at `{}`: {error}",
-                directories.temp_base_dir().display()
+                directories.temp_base.display()
             ),
             1,
         )
     })?;
 
-    let Some(cache_dir) = package_cache_dir_for_clear(cli, &directories) else {
-        return Ok(());
-    };
-
-    if cache_dir == directories.temp_base_dir() {
+    if directories.build_target == directories.temp_base {
         return Ok(());
     }
 
-    remove_directory_if_exists(&cache_dir).map_err(|error| {
+    remove_directory_if_exists(&directories.build_target).map_err(|error| {
         RunError::new(
             format!(
                 "failed to clear package build cache at `{}`: {error}",
-                cache_dir.display()
+                directories.build_target.display()
             ),
             1,
         )
@@ -143,12 +139,66 @@ fn remove_directory_if_exists(path: &Path) -> io::Result<()> {
     }
 }
 
-fn package_cache_dir_for_clear(cli: &Cli, directories: &DlxDirectories) -> Option<PathBuf> {
-    if let Some(path) = &cli.cache_dir {
-        return Some(path.clone());
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ClearDirectories {
+    temp_base: PathBuf,
+    build_target: PathBuf,
+}
 
-    Some(directories.build_target_dir())
+fn resolve_clear_directories(cli: &Cli) -> io::Result<ClearDirectories> {
+    let cwd = std::env::current_dir()?;
+
+    resolve_clear_directories_with(
+        &cwd,
+        cli.cache_dir.clone(),
+        non_empty_env_os(CARGO_DLX_ROOT_ENV),
+        non_empty_env_os(CARGO_DLX_TEMP_ENV),
+        non_empty_env_os(CARGO_DLX_BUILD_ENV),
+        default_home_dir(),
+    )
+}
+
+fn resolve_clear_directories_with(
+    cwd: &Path,
+    cache_dir: Option<PathBuf>,
+    root_env: Option<OsString>,
+    temp_env: Option<OsString>,
+    build_env: Option<OsString>,
+    home_dir: Option<PathBuf>,
+) -> io::Result<ClearDirectories> {
+    let root = resolve_env_path(cwd, root_env).or_else(|| default_dlx_root_dir(home_dir));
+
+    let temp_base = resolve_env_path(cwd, temp_env)
+        .or_else(|| root.as_ref().map(|root| root.join(CARGO_DLX_TEMP_DIRNAME)))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!(
+                    "could not determine cargo-dlx temporary directory; set {CARGO_DLX_TEMP_ENV} or {CARGO_DLX_ROOT_ENV}"
+                ),
+            )
+        })?;
+
+    let build_target = if let Some(path) = cache_dir {
+        path
+    } else {
+        resolve_env_path(cwd, build_env)
+            .or_else(|| root.as_ref().map(|root| root.join(CARGO_DLX_BUILD_DIRNAME)))
+            .map(|build_base| build_base.join(CARGO_DLX_TARGET_DIRNAME))
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!(
+                        "could not determine cargo-dlx build cache directory; set --cache-dir, {CARGO_DLX_BUILD_ENV}, or {CARGO_DLX_ROOT_ENV}"
+                    ),
+                )
+            })?
+    };
+
+    Ok(ClearDirectories {
+        temp_base,
+        build_target,
+    })
 }
 
 fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<ExitStatus> {
@@ -534,7 +584,8 @@ mod tests {
 
     use super::super::cli::Cli;
     use super::{
-        binary_target_name, package_cache_dir, resolve_dlx_directories_with, resolve_executable,
+        binary_target_name, package_cache_dir, resolve_clear_directories_with,
+        resolve_dlx_directories_with, resolve_executable,
     };
 
     #[test]
@@ -700,6 +751,49 @@ mod tests {
                 .to_string()
                 .contains("could not determine cargo-dlx root directory")
         );
+    }
+
+    #[test]
+    fn resolve_clear_directories_allows_temp_and_build_overrides_without_root() {
+        let directories = resolve_clear_directories_with(
+            Path::new("workspace"),
+            None,
+            None,
+            Some(OsString::from("runtime-temp")),
+            Some(OsString::from("build-cache")),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            directories.temp_base,
+            PathBuf::from("workspace").join("runtime-temp")
+        );
+        assert_eq!(
+            directories.build_target,
+            PathBuf::from("workspace")
+                .join("build-cache")
+                .join("target")
+        );
+    }
+
+    #[test]
+    fn resolve_clear_directories_allows_explicit_cache_dir_without_root() {
+        let directories = resolve_clear_directories_with(
+            Path::new("workspace"),
+            Some(PathBuf::from("explicit-cache")),
+            None,
+            Some(OsString::from("runtime-temp")),
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            directories.temp_base,
+            PathBuf::from("workspace").join("runtime-temp")
+        );
+        assert_eq!(directories.build_target, PathBuf::from("explicit-cache"));
     }
 
     fn new_temp_dir(label: &str) -> PathBuf {
