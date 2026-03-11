@@ -47,6 +47,62 @@ fn main() {
 }
 
 #[cargo_test]
+fn runs_selected_bin_from_multi_binary_package() {
+    Package::new("dlx-multi-bin", "0.1.0")
+        .file(
+            "src/bin/alpha.rs",
+            r#"
+fn main() {
+    println!("hello from alpha");
+}
+"#,
+        )
+        .file(
+            "src/bin/beta.rs",
+            r#"
+fn main() {
+    println!("hello from beta");
+}
+"#,
+        )
+        .publish();
+
+    let p = project().build();
+
+    p.cargo_dlx("--bin beta dlx-multi-bin")
+        .with_stdout_contains("hello from beta")
+        .run();
+}
+
+#[cargo_test]
+fn runs_selected_example_from_package() {
+    Package::new("dlx-example-target", "0.1.0")
+        .file(
+            "src/main.rs",
+            r#"
+fn main() {
+    println!("hello from default binary");
+}
+"#,
+        )
+        .file(
+            "examples/demo.rs",
+            r#"
+fn main() {
+    println!("hello from example target");
+}
+"#,
+        )
+        .publish();
+
+    let p = project().build();
+
+    p.cargo_dlx("--example demo dlx-example-target")
+        .with_stdout_contains("hello from example target")
+        .run();
+}
+
+#[cargo_test]
 fn returns_binary_exit_code() {
     Package::new("dlx-exit", "0.1.0")
         .file(

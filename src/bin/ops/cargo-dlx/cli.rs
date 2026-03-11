@@ -7,6 +7,7 @@ use url::Url;
 const FEATURE_HEADING: &str = "Feature Selection";
 const COMPILATION_HEADING: &str = "Compilation Options";
 const MANIFEST_HEADING: &str = "Manifest Options";
+const TARGET_SELECTION_HEADING: &str = "Target Selection";
 const SUBCOMMAND_NAME: &str = "dlx";
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -25,6 +26,8 @@ pub struct Cli {
         help = "Delete all cargo-dlx temporary directories and package build cache",
         conflicts_with_all = [
             "krate_and_args",
+            "bin",
+            "example",
             "no_package_cache",
             "features",
             "all_features",
@@ -35,6 +38,26 @@ pub struct Cli {
         ]
     )]
     pub clear: bool,
+
+    #[arg(
+        long,
+        value_name = "NAME",
+        num_args = 0..=1,
+        help = "Run only the specified binary",
+        help_heading = TARGET_SELECTION_HEADING,
+        conflicts_with = "example",
+    )]
+    pub bin: Option<Option<String>>,
+
+    #[arg(
+        long,
+        value_name = "NAME",
+        num_args = 0..=1,
+        help = "Run only the specified example",
+        help_heading = TARGET_SELECTION_HEADING,
+        conflicts_with = "bin",
+    )]
+    pub example: Option<Option<String>>,
 
     #[arg(
         value_names = ["CRATE[@<VER>]", "ARG"],
@@ -143,6 +166,19 @@ impl Cli {
 
     pub fn validate(&self) -> Result<(), clap::Error> {
         Ok(())
+    }
+
+    pub fn selected_bin_name(&self) -> Option<&str> {
+        self.bin.as_ref().and_then(|name| name.as_deref())
+    }
+
+    pub fn selected_example_name(&self) -> Option<&str> {
+        self.example.as_ref().and_then(|name| name.as_deref())
+    }
+
+    pub fn selected_target_name(&self) -> Option<&str> {
+        self.selected_bin_name()
+            .or_else(|| self.selected_example_name())
     }
 }
 
@@ -667,6 +703,50 @@ mod tests {
     fn parses_positional_crate_with_attached_version() {
         let cli = Cli::parse_from(["cargo-dlx", "ripgrep@14.1.1", "--version"]);
         assert_eq!(cli.krate_and_args, vec!["ripgrep@14.1.1", "--version"]);
+    }
+
+    #[test]
+    fn parses_bin_selection_with_name() {
+        let cli = Cli::parse_from(["cargo-dlx", "--bin", "custom-runner", "ripgrep"]);
+
+        assert_eq!(cli.bin, Some(Some(String::from("custom-runner"))));
+        assert!(cli.example.is_none());
+        assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
+        assert_eq!(cli.selected_target_name(), Some("custom-runner"));
+    }
+
+    #[test]
+    fn parses_example_selection_with_name() {
+        let cli = Cli::parse_from(["cargo-dlx", "--example", "demo", "ripgrep"]);
+
+        assert_eq!(cli.example, Some(Some(String::from("demo"))));
+        assert!(cli.bin.is_none());
+        assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
+        assert_eq!(cli.selected_target_name(), Some("demo"));
+    }
+
+    #[test]
+    fn parses_bin_selection_without_name() {
+        let cli = Cli::parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]);
+
+        assert_eq!(cli.bin, Some(None));
+        assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
+        assert_eq!(cli.selected_target_name(), None);
+    }
+
+    #[test]
+    fn rejects_bin_and_example_together() {
+        let error = Cli::try_parse_from([
+            "cargo-dlx",
+            "--bin",
+            "runner",
+            "--example",
+            "demo",
+            "ripgrep",
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("cannot be used with"));
     }
 
     #[test]

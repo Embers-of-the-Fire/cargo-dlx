@@ -74,7 +74,7 @@ Cargo semantics:
 - if there are multiple `[[bin]]`s without a default, error and list all `[[bin]]`s
 - `--bin` or `--example` without a name lists available names
 
-Implement status: Not implemented now.
+Implement status: `--bin` and `--example` are supported.
 
 Alternatives:
 - Have a syntax to mix this in with the package selection
