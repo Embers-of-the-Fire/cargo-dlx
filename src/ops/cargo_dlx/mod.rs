@@ -3,7 +3,7 @@ use clap::Parser;
 mod cli;
 mod run;
 
-pub(crate) fn run() {
+pub fn run() {
     let mut argv = std::env::args_os();
     let program_name = argv
         .next()
