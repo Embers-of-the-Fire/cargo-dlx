@@ -1,4 +1,5 @@
 mod cargo_dlx;
+mod dlx;
 
 use cargo_test_support::{ArgLineCommandExt, Execs, Project, TestEnvCommandExt, execs, process};
 use cargo_util::ProcessBuilder;
