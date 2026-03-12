@@ -72,7 +72,7 @@ Cargo semantics:
 - a single `[[bin]]` is considered the default
 - if multiple `[[bin]]`s are present, `package.default-run` can specify the default
 - if there are multiple `[[bin]]`s without a default, error and list all `[[bin]]`s
-- `--bin` or `--example` without a name lists available names
+- `--bin` and `--example` require explicit target names
 
 Implement status: `--bin` and `--example` are supported.
 

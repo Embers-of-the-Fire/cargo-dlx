@@ -40,9 +40,9 @@
 </tspan>
     <tspan x="10px" y="226px"><tspan>Target Selection:</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>      --bin [&lt;NAME&gt;]      Run only the specified binary</tspan>
+    <tspan x="10px" y="244px"><tspan>      --bin &lt;NAME&gt;      Run only the specified binary</tspan>
 </tspan>
-    <tspan x="10px" y="262px"><tspan>      --example [&lt;NAME&gt;]  Run only the specified example</tspan>
+    <tspan x="10px" y="262px"><tspan>      --example &lt;NAME&gt;  Run only the specified example</tspan>
 </tspan>
     <tspan x="10px" y="280px">
 </tspan>

@@ -624,44 +624,15 @@ mod tests {
         ffi::OsString,
         fs,
         path::{Path, PathBuf},
-        process::Command,
     };
 
     use clap::Parser;
 
     use super::super::cli::Cli;
     use super::{
-        append_target_selection_args, binary_target_name, package_cache_dir,
-        resolve_clear_directories_with, resolve_dlx_directories_with, resolve_executable,
+        binary_target_name, package_cache_dir, resolve_clear_directories_with,
+        resolve_dlx_directories_with, resolve_executable,
     };
-
-    #[test]
-    fn target_selection_omits_bin_flag_without_name() {
-        let cli = Cli::parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]);
-        let mut command = Command::new("cargo");
-
-        append_target_selection_args(&mut command, &cli);
-
-        let args: Vec<_> = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect();
-        assert!(args.is_empty());
-    }
-
-    #[test]
-    fn target_selection_omits_example_flag_without_name() {
-        let cli = Cli::parse_from(["cargo-dlx", "--example", "--", "ripgrep"]);
-        let mut command = Command::new("cargo");
-
-        append_target_selection_args(&mut command, &cli);
-
-        let args: Vec<_> = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect();
-        assert!(args.is_empty());
-    }
 
     #[test]
     fn picks_single_binary_when_name_is_different() {

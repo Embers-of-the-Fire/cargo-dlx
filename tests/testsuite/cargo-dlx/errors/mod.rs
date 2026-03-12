@@ -33,25 +33,25 @@ fn strips_cargo_subcommand_prefix() {
 }
 
 #[cargo_test]
-fn rejects_bin_without_name_when_warning_generator_is_unavailable() {
+fn rejects_bin_without_name() {
     let p = project().build();
 
     p.cargo_dlx("--bin -- ripgrep")
         .with_status(2)
         .with_stdout_data(str![""])
-        .with_stderr_contains("[..]--bin requires an explicit binary name[..]")
-        .with_stderr_contains("[..]builtin warning generator is unavailable[..]")
+        .with_stderr_contains("[..]a value is required[..]")
+        .with_stderr_contains("[..]--bin <NAME>[..]")
         .run();
 }
 
 #[cargo_test]
-fn rejects_example_without_name_when_warning_generator_is_unavailable() {
+fn rejects_example_without_name() {
     let p = project().build();
 
     p.cargo_dlx("--example -- ripgrep")
         .with_status(2)
         .with_stdout_data(str![""])
-        .with_stderr_contains("[..]--example requires an explicit example name[..]")
-        .with_stderr_contains("[..]builtin warning generator is unavailable[..]")
+        .with_stderr_contains("[..]a value is required[..]")
+        .with_stderr_contains("[..]--example <NAME>[..]")
         .run();
 }

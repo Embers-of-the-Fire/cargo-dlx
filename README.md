@@ -104,8 +104,8 @@ You can disable package caching with `--no-package-cache`.
 
 - `--cache-dir <dir>` sets the package build cache directory (`CARGO_TARGET_DIR` for install).
 - `--no-package-cache` disables package cache usage.
-- `--bin [<NAME>]` selects which binary target to run.
-- `--example [<NAME>]` selects which example target to run.
+- `--bin <NAME>` selects which binary target to run.
+- `--example <NAME>` selects which example target to run.
 - `--clear` clears temporary install roots and package build cache paths derived from
   `CARGO_DLX_ROOT`/`CARGO_DLX_TEMP`/`CARGO_DLX_BUILD` (or the directory passed via `--cache-dir`).
 - `CARGO_DLX_ROOT` sets the cargo-dlx runtime root directory (defaults to `~/.cargo-dlx`).

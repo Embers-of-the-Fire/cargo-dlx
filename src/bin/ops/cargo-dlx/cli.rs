@@ -42,22 +42,20 @@ pub struct Cli {
     #[arg(
         long,
         value_name = "NAME",
-        num_args = 0..=1,
         help = "Run only the specified binary",
         help_heading = TARGET_SELECTION_HEADING,
         conflicts_with = "example",
     )]
-    pub bin: Option<Option<String>>,
+    pub bin: Option<String>,
 
     #[arg(
         long,
         value_name = "NAME",
-        num_args = 0..=1,
         help = "Run only the specified example",
         help_heading = TARGET_SELECTION_HEADING,
         conflicts_with = "bin",
     )]
-    pub example: Option<Option<String>>,
+    pub example: Option<String>,
 
     #[arg(
         value_names = ["CRATE[@<VER>]", "ARG"],
@@ -164,63 +162,18 @@ impl Cli {
         normalized
     }
 
-    pub fn validate(&self) -> Result<(), clap::Error> {
-        self.validate_target_name("--bin", self.bin.as_ref(), "binary")?;
-        self.validate_target_name("--example", self.example.as_ref(), "example")?;
-
-        Ok(())
-    }
-
-    fn validate_target_name(
-        &self,
-        flag: &str,
-        value: Option<&Option<String>>,
-        target_kind: &str,
-    ) -> Result<(), clap::Error> {
-        if value.is_some_and(Option::is_none) {
-            return self.handle_missing_target_name(flag, target_kind);
-        }
-
-        Ok(())
-    }
-
-    fn handle_missing_target_name(&self, flag: &str, target_kind: &str) -> Result<(), clap::Error> {
-        let message =
-            format!("{flag} requires an explicit {target_kind} name (use `{flag} <NAME>`).");
-
-        if cargo_builtin_warning_generator_available() {
-            emit_cargo_builtin_warning(&message);
-            Ok(())
-        } else {
-            Err(clap::Error::raw(
-                clap::error::ErrorKind::InvalidValue,
-                format!(
-                    "{message} cargo's builtin warning generator is unavailable, so this is treated as an error."
-                ),
-            ))
-        }
-    }
-
     pub fn selected_bin_name(&self) -> Option<&str> {
-        self.bin.as_ref().and_then(|name| name.as_deref())
+        self.bin.as_deref()
     }
 
     pub fn selected_example_name(&self) -> Option<&str> {
-        self.example.as_ref().and_then(|name| name.as_deref())
+        self.example.as_deref()
     }
 
     pub fn selected_target_name(&self) -> Option<&str> {
         self.selected_bin_name()
             .or_else(|| self.selected_example_name())
     }
-}
-
-fn cargo_builtin_warning_generator_available() -> bool {
-    false
-}
-
-fn emit_cargo_builtin_warning(message: &str) {
-    eprintln!("warning: {message}");
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -750,7 +703,7 @@ mod tests {
     fn parses_bin_selection_with_name() {
         let cli = Cli::parse_from(["cargo-dlx", "--bin", "custom-runner", "ripgrep"]);
 
-        assert_eq!(cli.bin, Some(Some(String::from("custom-runner"))));
+        assert_eq!(cli.bin, Some(String::from("custom-runner")));
         assert!(cli.example.is_none());
         assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
         assert_eq!(cli.selected_target_name(), Some("custom-runner"));
@@ -760,53 +713,26 @@ mod tests {
     fn parses_example_selection_with_name() {
         let cli = Cli::parse_from(["cargo-dlx", "--example", "demo", "ripgrep"]);
 
-        assert_eq!(cli.example, Some(Some(String::from("demo"))));
+        assert_eq!(cli.example, Some(String::from("demo")));
         assert!(cli.bin.is_none());
         assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
         assert_eq!(cli.selected_target_name(), Some("demo"));
     }
 
     #[test]
-    fn parses_bin_selection_without_name() {
-        let cli = Cli::parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]);
+    fn rejects_bin_selection_without_name() {
+        let error = Cli::try_parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]).unwrap_err();
 
-        assert_eq!(cli.bin, Some(None));
-        assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
-        assert_eq!(cli.selected_target_name(), None);
+        assert!(error.to_string().contains("--bin <NAME>"));
+        assert!(error.to_string().contains("a value is required"));
     }
 
     #[test]
-    fn validate_rejects_bin_selection_without_name_when_warning_support_is_unavailable() {
-        let cli = Cli::parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]);
-        let error = cli.validate().unwrap_err();
+    fn rejects_example_selection_without_name() {
+        let error = Cli::try_parse_from(["cargo-dlx", "--example", "--", "ripgrep"]).unwrap_err();
 
-        assert!(
-            error
-                .to_string()
-                .contains("--bin requires an explicit binary name")
-        );
-        assert!(
-            error
-                .to_string()
-                .contains("builtin warning generator is unavailable")
-        );
-    }
-
-    #[test]
-    fn validate_rejects_example_selection_without_name_when_warning_support_is_unavailable() {
-        let cli = Cli::parse_from(["cargo-dlx", "--example", "--", "ripgrep"]);
-        let error = cli.validate().unwrap_err();
-
-        assert!(
-            error
-                .to_string()
-                .contains("--example requires an explicit example name")
-        );
-        assert!(
-            error
-                .to_string()
-                .contains("builtin warning generator is unavailable")
-        );
+        assert!(error.to_string().contains("--example <NAME>"));
+        assert!(error.to_string().contains("a value is required"));
     }
 
     #[test]

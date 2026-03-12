@@ -11,9 +11,6 @@ pub(crate) fn run() {
     let raw_args = cli::Cli::normalize_raw_args(argv);
 
     let cmd = cli::Cli::parse_from(std::iter::once(program_name).chain(raw_args.iter().cloned()));
-    if let Err(error) = cmd.validate() {
-        error.exit();
-    }
 
     match run::execute(&cmd) {
         Ok(run::Execution::Completed) => {}
