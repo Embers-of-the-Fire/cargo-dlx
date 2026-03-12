@@ -269,19 +269,7 @@ fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<Exit
         command.arg(version_req.to_string());
     }
 
-    if let Some(bin) = &cli.bin {
-        command.arg("--bin");
-        if let Some(bin) = bin {
-            command.arg(bin);
-        }
-    }
-
-    if let Some(example) = &cli.example {
-        command.arg("--example");
-        if let Some(example) = example {
-            command.arg(example);
-        }
-    }
+    append_target_selection_args(&mut command, cli);
 
     if !cli.features.is_empty() {
         command.arg("--features");
@@ -311,6 +299,18 @@ fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<Exit
     configure_package_cache(&mut command, cli)?;
 
     command.status()
+}
+
+fn append_target_selection_args(command: &mut Command, cli: &Cli) {
+    if let Some(bin) = cli.selected_bin_name() {
+        command.arg("--bin");
+        command.arg(bin);
+    }
+
+    if let Some(example) = cli.selected_example_name() {
+        command.arg("--example");
+        command.arg(example);
+    }
 }
 
 fn cargo_binary() -> OsString {
@@ -620,15 +620,44 @@ mod tests {
         ffi::OsString,
         fs,
         path::{Path, PathBuf},
+        process::Command,
     };
 
     use clap::Parser;
 
     use super::super::cli::Cli;
     use super::{
-        binary_target_name, package_cache_dir, resolve_clear_directories_with,
-        resolve_dlx_directories_with, resolve_executable,
+        append_target_selection_args, binary_target_name, package_cache_dir,
+        resolve_clear_directories_with, resolve_dlx_directories_with, resolve_executable,
     };
+
+    #[test]
+    fn target_selection_omits_bin_flag_without_name() {
+        let cli = Cli::parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]);
+        let mut command = Command::new("cargo");
+
+        append_target_selection_args(&mut command, &cli);
+
+        let args: Vec<_> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn target_selection_omits_example_flag_without_name() {
+        let cli = Cli::parse_from(["cargo-dlx", "--example", "--", "ripgrep"]);
+        let mut command = Command::new("cargo");
+
+        append_target_selection_args(&mut command, &cli);
+
+        let args: Vec<_> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.is_empty());
+    }
 
     #[test]
     fn picks_single_binary_when_name_is_different() {
