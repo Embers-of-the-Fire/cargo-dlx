@@ -165,7 +165,40 @@ impl Cli {
     }
 
     pub fn validate(&self) -> Result<(), clap::Error> {
+        self.validate_target_name("--bin", self.bin.as_ref(), "binary")?;
+        self.validate_target_name("--example", self.example.as_ref(), "example")?;
+
         Ok(())
+    }
+
+    fn validate_target_name(
+        &self,
+        flag: &str,
+        value: Option<&Option<String>>,
+        target_kind: &str,
+    ) -> Result<(), clap::Error> {
+        if value.is_some_and(Option::is_none) {
+            return self.handle_missing_target_name(flag, target_kind);
+        }
+
+        Ok(())
+    }
+
+    fn handle_missing_target_name(&self, flag: &str, target_kind: &str) -> Result<(), clap::Error> {
+        let message =
+            format!("{flag} requires an explicit {target_kind} name (use `{flag} <NAME>`).");
+
+        if cargo_builtin_warning_generator_available() {
+            emit_cargo_builtin_warning(&message);
+            Ok(())
+        } else {
+            Err(clap::Error::raw(
+                clap::error::ErrorKind::InvalidValue,
+                format!(
+                    "{message} cargo's builtin warning generator is unavailable, so this is treated as an error."
+                ),
+            ))
+        }
     }
 
     pub fn selected_bin_name(&self) -> Option<&str> {
@@ -180,6 +213,14 @@ impl Cli {
         self.selected_bin_name()
             .or_else(|| self.selected_example_name())
     }
+}
+
+fn cargo_builtin_warning_generator_available() -> bool {
+    false
+}
+
+fn emit_cargo_builtin_warning(message: &str) {
+    eprintln!("warning: {message}");
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -732,6 +773,40 @@ mod tests {
         assert_eq!(cli.bin, Some(None));
         assert_eq!(cli.krate_and_args, vec!["ripgrep"]);
         assert_eq!(cli.selected_target_name(), None);
+    }
+
+    #[test]
+    fn validate_rejects_bin_selection_without_name_when_warning_support_is_unavailable() {
+        let cli = Cli::parse_from(["cargo-dlx", "--bin", "--", "ripgrep"]);
+        let error = cli.validate().unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("--bin requires an explicit binary name")
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("builtin warning generator is unavailable")
+        );
+    }
+
+    #[test]
+    fn validate_rejects_example_selection_without_name_when_warning_support_is_unavailable() {
+        let cli = Cli::parse_from(["cargo-dlx", "--example", "--", "ripgrep"]);
+        let error = cli.validate().unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("--example requires an explicit example name")
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("builtin warning generator is unavailable")
+        );
     }
 
     #[test]
