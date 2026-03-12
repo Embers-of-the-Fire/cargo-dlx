@@ -532,9 +532,13 @@ fn known_binary_names(entries: &[PathBuf]) -> String {
     entries
         .iter()
         .map(|entry| {
-            entry
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
+            binary_target_name(entry)
+                .map(str::to_owned)
+                .or_else(|| {
+                    entry
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                })
                 .unwrap_or_else(|| entry.display().to_string())
         })
         .collect::<Vec<_>>()
@@ -711,6 +715,30 @@ mod tests {
 
         let error = resolve_executable(&bin_dir, None, Some("tool")).unwrap_err();
         assert!(error.to_string().contains("installed multiple binaries"));
+        assert!(error.to_string().contains("alpha, beta"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn rejects_unknown_selected_binary_target_with_target_names() {
+        let temp_dir = new_temp_dir("unknown-target");
+        let bin_dir = temp_dir.join("bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+
+        let first_name = if cfg!(windows) { "alpha.exe" } else { "alpha" };
+        let second_name = if cfg!(windows) { "beta.exe" } else { "beta" };
+
+        fs::write(bin_dir.join(first_name), b"").unwrap();
+        fs::write(bin_dir.join(second_name), b"").unwrap();
+
+        let error = resolve_executable(&bin_dir, Some("gamma"), Some("tool")).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("did not find installed executable `gamma`")
+        );
+        assert!(error.to_string().contains("installed: alpha, beta"));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }
