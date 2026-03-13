@@ -1,4 +1,4 @@
-<svg width="802px" height="524px" xmlns="http://www.w3.org/2000/svg">
+<svg width="802px" height="596px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -48,29 +48,37 @@
 </tspan>
     <tspan x="10px" y="298px">
 </tspan>
-    <tspan x="10px" y="316px"><tspan>Feature Selection:</tspan>
+    <tspan x="10px" y="316px"><tspan>Target selection:</tspan>
 </tspan>
-    <tspan x="10px" y="334px"><tspan>  -F, --features &lt;FEATURES&gt;  Space or comma separated list of features to activate</tspan>
+    <tspan x="10px" y="334px"><tspan>      --bin &lt;NAME&gt;      Build and run the specified binary</tspan>
 </tspan>
-    <tspan x="10px" y="352px"><tspan>      --all-features         Activate all available features</tspan>
+    <tspan x="10px" y="352px"><tspan>      --example &lt;NAME&gt;  Build and run the specified example</tspan>
 </tspan>
-    <tspan x="10px" y="370px"><tspan>      --no-default-features  Do not activate the `default` feature</tspan>
+    <tspan x="10px" y="370px">
 </tspan>
-    <tspan x="10px" y="388px">
+    <tspan x="10px" y="388px"><tspan>Feature Selection:</tspan>
 </tspan>
-    <tspan x="10px" y="406px"><tspan>Manifest Options:</tspan>
+    <tspan x="10px" y="406px"><tspan>  -F, --features &lt;FEATURES&gt;  Space or comma separated list of features to activate</tspan>
 </tspan>
-    <tspan x="10px" y="424px"><tspan>      --locked   Assert that `Cargo.lock` will remain unchanged</tspan>
+    <tspan x="10px" y="424px"><tspan>      --all-features         Activate all available features</tspan>
 </tspan>
-    <tspan x="10px" y="442px"><tspan>      --offline  Run without accessing the network</tspan>
+    <tspan x="10px" y="442px"><tspan>      --no-default-features  Do not activate the `default` feature</tspan>
 </tspan>
-    <tspan x="10px" y="460px"><tspan>      --frozen   Equivalent to specifying both --locked and --offline</tspan>
+    <tspan x="10px" y="460px">
 </tspan>
-    <tspan x="10px" y="478px">
+    <tspan x="10px" y="478px"><tspan>Manifest Options:</tspan>
 </tspan>
-    <tspan x="10px" y="496px"><tspan>Visit https://github.com/Embers-of-the-Fire/cargo-dlx for documentation about this command.</tspan>
+    <tspan x="10px" y="496px"><tspan>      --locked   Assert that `Cargo.lock` will remain unchanged</tspan>
 </tspan>
-    <tspan x="10px" y="514px">
+    <tspan x="10px" y="514px"><tspan>      --offline  Run without accessing the network</tspan>
+</tspan>
+    <tspan x="10px" y="532px"><tspan>      --frozen   Equivalent to specifying both --locked and --offline</tspan>
+</tspan>
+    <tspan x="10px" y="550px">
+</tspan>
+    <tspan x="10px" y="568px"><tspan>Visit https://github.com/Embers-of-the-Fire/cargo-dlx for documentation about this command.</tspan>
+</tspan>
+    <tspan x="10px" y="586px">
 </tspan>
   </text>
 

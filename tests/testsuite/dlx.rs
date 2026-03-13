@@ -373,15 +373,15 @@ hello from cargo-dlx
 "#]])
         .run();
 
-    p.cargo_dlx(&format!("path+{}#dlx-path-source", p.root().to_url()))
-        .with_status(1)
-        .with_stdout_data("")
-        .with_stderr_data(str![[r#"
-...
-[ERROR] `dlx-path-source` installed multiple binaries (goodbye, hello), unable to select one automatically
+    p.cargo_dlx(&format!(
+        "--bin hello path+{}#dlx-path-source",
+        p.root().to_url()
+    ))
+    .with_stdout_data(str![[r#"
+hello from cargo-dlx
 
 "#]])
-        .run();
+    .run();
 }
 
 #[cargo_test]
@@ -422,12 +422,15 @@ goodbye from cargo-dlx
 "#]])
         .run();
 
-    p.cargo_dlx(&format!("path+{}#dlx-path-source", p.root().to_url()))
-        .with_stdout_data(str![[r#"
-hello from cargo-dlx
+    p.cargo_dlx(&format!(
+        "--example goodbye path+{}#dlx-path-source",
+        p.root().to_url()
+    ))
+    .with_stdout_data(str![[r#"
+goodbye from cargo-dlx
 
 "#]])
-        .run();
+    .run();
 }
 
 #[cargo_test]

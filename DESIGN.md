@@ -74,7 +74,11 @@ Cargo semantics:
 - if there are multiple `[[bin]]`s without a default, error and list all `[[bin]]`s
 - `--bin` or `--example` without a name lists available names
 
-Implement status: Not implemented now.
+Implementation status:
+- ✅ `--bin`
+- ✅ `--example`
+- ✅ error when ambiguous
+- ❌ `package.default-run`
 
 Alternatives:
 - Have a syntax to mix this in with the package selection
