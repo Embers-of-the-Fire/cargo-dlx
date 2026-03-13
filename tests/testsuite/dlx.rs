@@ -280,7 +280,9 @@ available binaries: goodbye, hello
         .with_stdout_data("")
         .with_stderr_data(str![[r#"
 ...
-[ERROR] `dlx-path-source` installed multiple binaries (goodbye, hello), unable to select one automatically
+[ERROR] `cargo run` could not determine which binary to run
+[HELP] specify the binary with `--bin` option
+available binaries: goodbye, hello
 
 "#]])
         .run();
@@ -329,7 +331,9 @@ hello from cargo-dlx
         .with_stdout_data("")
         .with_stderr_data(str![[r#"
 ...
-[ERROR] `dlx-path-source` installed multiple binaries (goodbye, hello), unable to select one automatically
+[ERROR] `cargo run` could not determine which binary to run
+[HELP] specify the binary with `--bin` option
+available binaries: goodbye, hello
 
 "#]])
         .run();

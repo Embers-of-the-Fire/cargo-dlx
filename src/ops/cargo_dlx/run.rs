@@ -505,22 +505,15 @@ fn resolve_executable(
 
     let known = entries
         .iter()
-        .map(|entry| {
-            entry
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| entry.display().to_string())
-        })
+        .filter_map(|path| binary_target_name(path))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let message = if let Some(package_name) = package_name {
-        format!(
-            "`{package_name}` installed multiple binaries ({known}), unable to select one automatically"
-        )
-    } else {
-        format!("installed multiple binaries ({known}), unable to select one automatically")
-    };
+    let message = format!(
+        "`cargo run` could not determine which binary to run
+help: specify the binary with `--bin` option
+available binaries: {known}"
+    );
 
     Err(RunError::new(message, 1))
 }
@@ -665,7 +658,12 @@ mod tests {
         fs::write(bin_dir.join(second_name), b"").unwrap();
 
         let error = resolve_executable(&bin_dir, None, Some("tool")).unwrap_err();
-        assert!(error.to_string().contains("installed multiple binaries"));
+        assert!(
+            error
+                .to_string()
+                .contains("available binaries: alpha, beta"),
+            "{error}"
+        );
 
         let _ = fs::remove_dir_all(&temp_dir);
     }
