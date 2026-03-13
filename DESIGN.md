@@ -45,6 +45,9 @@ Behavior notes for current implementation:
 Alternatives:
 - Only accept `<name>[@<ver>]` from the registry
 - Have `<name>` pull from a local `Cargo.lock` like `cargo info`
+- Allow `-` for running from stdin (or should that just be `cargo -`)
+- Provide a `<ver>` identifier for using a local `Cargo.lock` for the version
+- Have a bare `<name>` be a placeholder for the last source and combination of flags (bin, profile, features) that used that name
 
 ### Forwarding arguments
 
@@ -85,6 +88,7 @@ Implementation status:
 Alternatives:
 - Have a syntax to mix this in with the package selection
 - If a [`last`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last) argument is present, the usage becomes `cargo dlx [DLX_ARGS] <PACKAGE> <BIN> -- [PACKAGE_ARGS]`
+- Add a `--package` selection flag which changes `<PACKAGE>` to be a `<CMD>` run from that package
 
 ### Caching strategy
 
