@@ -89,21 +89,18 @@ Temporary install base directory selection (highest priority first):
 1. `CARGO_DLX_TEMP`
 2. `CARGO_DLX_ROOT/tmp`
 
-You can disable package caching with `--no-package-cache`.
-
 ## Storage Strategy
 
 - **Temporary install root**: each invocation installs binaries into a temporary `--root` directory,
   executes the selected binary, then removes that directory on exit.
 - **Persistent package cache**: build/intermediate artifacts are stored in the package cache directory
-  (when enabled) and reused by future invocations.
+  and reused by future invocations.
 - **Cargo global cache**: Cargo's own registry/git cache remains managed by Cargo (typically under
   `CARGO_HOME`, for example `~/.cargo`).
 
 ## Options
 
 - `--cache-dir <dir>` sets the package build cache directory (`CARGO_TARGET_DIR` for install).
-- `--no-package-cache` disables package cache usage.
 - `--clear` clears temporary install roots and package build cache paths derived from
   `CARGO_DLX_ROOT`/`CARGO_DLX_TEMP`/`CARGO_DLX_BUILD` (or the directory passed via `--cache-dir`).
 - `CARGO_DLX_ROOT` sets the cargo-dlx runtime root directory (defaults to `~/.cargo-dlx`).
