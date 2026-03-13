@@ -11,11 +11,13 @@ fn rejects_prefixed_semver_version() {
 
     p.cargo_dlx("ripgrep@v14.1.1")
         .with_status(1)
-        .with_stdout_data(str![""])
-        .with_stderr_contains(
-            "[ERROR] the version provided, `v14.1.1` is not a valid SemVer requirement",
-        )
-        .with_stderr_contains("[HELP] try changing the version to `14.1.1`")
+        .with_stdout_data("")
+        .with_stderr_data(str![[r#"
+[ERROR] the version provided, `v14.1.1` is not a valid SemVer requirement
+
+[HELP] try changing the version to `14.1.1`
+
+"#]])
         .run();
 }
 
@@ -26,11 +28,13 @@ fn strips_cargo_subcommand_prefix() {
     p.cargo_dlx("dlx ripgrep@v14.1.1")
         .env("CARGO", "cargo")
         .with_status(1)
-        .with_stdout_data(str![""])
-        .with_stderr_contains(
-            "[ERROR] the version provided, `v14.1.1` is not a valid SemVer requirement",
-        )
-        .with_stderr_contains("[HELP] try changing the version to `14.1.1`")
+        .with_stdout_data("")
+        .with_stderr_data(str![[r#"
+[ERROR] the version provided, `v14.1.1` is not a valid SemVer requirement
+
+[HELP] try changing the version to `14.1.1`
+
+"#]])
         .run();
 }
 
@@ -50,7 +54,10 @@ fn main() {
     let p = project().build();
 
     p.cargo_dlx("dlx-hello")
-        .with_stdout_contains("hello from cargo-dlx")
+        .with_stdout_data(str![[r#"
+hello from cargo-dlx
+
+"#]])
         .run();
 }
 
@@ -71,7 +78,10 @@ fn main() {
     let p = project().build();
 
     p.cargo_dlx("dlx-args --help --color always")
-        .with_stdout_contains("--help|--color|always")
+        .with_stdout_data(str![[r#"
+--help|--color|always
+
+"#]])
         .run();
 }
 
@@ -93,7 +103,12 @@ fn main() {
 
     p.cargo_dlx("dlx-exit")
         .with_status(42)
-        .with_stderr_contains("dlx-exit failed intentionally")
+        .with_stdout_data("")
+        .with_stderr_data(str![[r#"
+...
+dlx-exit failed intentionally
+
+"#]])
         .run();
 }
 
@@ -124,7 +139,10 @@ fn main() {
     let p = project().build();
 
     p.cargo_dlx(&format!("git+{}?rev={rev}#dlx-git-ref", git_project.url()))
-        .with_stdout_contains("hello from git ref")
+        .with_stdout_data(str![[r#"
+hello from git ref
+
+"#]])
         .run();
 }
 
@@ -154,7 +172,10 @@ fn main() {
     let p = project().build();
 
     p.cargo_dlx(&format!("{}#dlx-file-source", source.root().to_url()))
-        .with_stdout_contains("hello from file ref")
+        .with_stdout_data(str![[r#"
+hello from file ref
+
+"#]])
         .run();
 }
 
@@ -184,7 +205,10 @@ fn main() {
     let p = project().build();
 
     p.cargo_dlx(&format!("path+{}#dlx-path-source", source.root().to_url()))
-        .with_stdout_contains("hello from path+file ref")
+        .with_stdout_data(str![[r#"
+hello from path+file ref
+
+"#]])
         .run();
 }
 
@@ -204,7 +228,10 @@ fn main() {
     let p = project().build();
 
     p.cargo_dlx("registry+https://github.com/rust-lang/crates.io-index#dlx-registry-ref@0.1.0")
-        .with_stdout_contains("hello from registry ref")
+        .with_stdout_data(str![[r#"
+hello from registry ref
+
+"#]])
         .run();
 }
 
@@ -226,7 +253,10 @@ fn main() {
 
     p.cargo_dlx("dlx-root-defaults")
         .env("CARGO_DLX_ROOT", &dlx_root)
-        .with_stdout_contains("hello from root defaults")
+        .with_stdout_data(str![[r#"
+hello from root defaults
+
+"#]])
         .run();
 
     let temp_base = dlx_root.join("tmp");
@@ -271,7 +301,10 @@ fn main() {
         .env("CARGO_DLX_ROOT", &dlx_root)
         .env("CARGO_DLX_TEMP", &dlx_temp)
         .env("CARGO_DLX_BUILD", &dlx_build)
-        .with_stdout_contains("hello from root overrides")
+        .with_stdout_data(str![[r#"
+hello from root overrides
+
+"#]])
         .run();
 
     let root_temp = dlx_root.join("tmp");
@@ -320,6 +353,8 @@ fn clear_removes_root_temp_and_build_cache() {
 
     p.cargo_dlx("--clear")
         .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data("")
+        .with_stderr_data(str![])
         .run();
 
     assert!(!temp_base.exists());
@@ -351,6 +386,8 @@ fn clear_respects_temp_and_build_overrides() {
         .env("CARGO_DLX_ROOT", &dlx_root)
         .env("CARGO_DLX_TEMP", &dlx_temp)
         .env("CARGO_DLX_BUILD", &dlx_build)
+        .with_stdout_data("")
+        .with_stderr_data(str![])
         .run();
 
     assert!(!dlx_temp.exists());
@@ -378,6 +415,8 @@ fn clear_works_with_temp_and_build_overrides_without_root_or_home() {
         .env("USERPROFILE", "")
         .env("HOMEDRIVE", "")
         .env("HOMEPATH", "")
+        .with_stdout_data("")
+        .with_stderr_data(str![])
         .run();
 
     assert!(!dlx_temp.exists());
@@ -401,6 +440,8 @@ fn clear_works_with_temp_and_explicit_cache_without_root_or_home() {
         .env("USERPROFILE", "")
         .env("HOMEDRIVE", "")
         .env("HOMEPATH", "")
+        .with_stdout_data("")
+        .with_stderr_data(str![])
         .run();
 
     assert!(!dlx_temp.exists());
@@ -413,7 +454,7 @@ fn clear_rejects_package_arguments() {
 
     p.cargo_dlx("--clear ripgrep")
         .with_status(2)
-        .with_stdout_data(str![""])
+        .with_stdout_data("")
         .with_stderr_data(str![[r#"
 [ERROR] the argument '--clear' cannot be used with '[CRATE[@<VER>]] [ARG]...'
 
@@ -439,6 +480,8 @@ fn clear_uses_explicit_cache_dir_instead_of_root_build_cache() {
 
     p.cargo_dlx("--clear --cache-dir explicit-cache")
         .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data("")
+        .with_stderr_data(str![])
         .run();
 
     assert!(!explicit_cache_dir.exists());
