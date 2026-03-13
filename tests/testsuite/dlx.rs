@@ -236,6 +236,208 @@ hello from registry ref
 }
 
 #[cargo_test]
+fn multiple_binaries() {
+    let p = project()
+        .file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "dlx-path-source"
+version = "0.1.0"
+edition = "2021"
+"#,
+        )
+        .file(
+            "src/bin/hello.rs",
+            r#"
+fn main() {
+    println!("hello from cargo-dlx");
+}
+"#,
+        )
+        .file(
+            "src/bin/goodbye.rs",
+            r#"
+fn main() {
+    println!("goodbye from cargo-dlx");
+}
+"#,
+        )
+        .build();
+
+    p.cargo_global("run")
+        .with_status(101)
+        .with_stdout_data("")
+        .with_stderr_data(str![[r#"
+[ERROR] `cargo run` could not determine which binary to run. Use the `--bin` option to specify a binary, or the `default-run` manifest key.
+available binaries: goodbye, hello
+
+"#]])
+        .run();
+
+    p.cargo_dlx(&format!("path+{}#dlx-path-source", p.root().to_url()))
+        .with_status(1)
+        .with_stdout_data("")
+        .with_stderr_data(str![[r#"
+...
+[ERROR] `cargo run` could not determine which binary to run
+[HELP] specify the binary with `--bin` option
+available binaries: goodbye, hello
+
+"#]])
+        .run();
+}
+
+#[cargo_test]
+fn multiple_binaries_with_default_run() {
+    let p = project()
+        .file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "dlx-path-source"
+version = "0.1.0"
+edition = "2021"
+default-run = "hello"
+"#,
+        )
+        .file(
+            "src/bin/hello.rs",
+            r#"
+fn main() {
+    println!("hello from cargo-dlx");
+}
+"#,
+        )
+        .file(
+            "src/bin/goodbye.rs",
+            r#"
+fn main() {
+    println!("goodbye from cargo-dlx");
+}
+"#,
+        )
+        .build();
+
+    p.cargo_global("run")
+        .with_stdout_data(str![[r#"
+hello from cargo-dlx
+
+"#]])
+        .run();
+
+    p.cargo_dlx(&format!("path+{}#dlx-path-source", p.root().to_url()))
+        .with_status(1)
+        .with_stdout_data("")
+        .with_stderr_data(str![[r#"
+...
+[ERROR] `cargo run` could not determine which binary to run
+[HELP] specify the binary with `--bin` option
+available binaries: goodbye, hello
+
+"#]])
+        .run();
+}
+
+#[cargo_test]
+fn multiple_binaries_with_bin() {
+    let p = project()
+        .file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "dlx-path-source"
+version = "0.1.0"
+edition = "2021"
+default-run = "hello"
+"#,
+        )
+        .file(
+            "src/bin/hello.rs",
+            r#"
+fn main() {
+    println!("hello from cargo-dlx");
+}
+"#,
+        )
+        .file(
+            "src/bin/goodbye.rs",
+            r#"
+fn main() {
+    println!("goodbye from cargo-dlx");
+}
+"#,
+        )
+        .build();
+
+    p.cargo_global("run --bin hello")
+        .with_stdout_data(str![[r#"
+hello from cargo-dlx
+
+"#]])
+        .run();
+
+    p.cargo_dlx(&format!(
+        "--bin hello path+{}#dlx-path-source",
+        p.root().to_url()
+    ))
+    .with_stdout_data(str![[r#"
+hello from cargo-dlx
+
+"#]])
+    .run();
+}
+
+#[cargo_test]
+fn multiple_binaries_with_example() {
+    let p = project()
+        .file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "dlx-path-source"
+version = "0.1.0"
+edition = "2021"
+default-run = "hello"
+"#,
+        )
+        .file(
+            "src/bin/hello.rs",
+            r#"
+fn main() {
+    println!("hello from cargo-dlx");
+}
+"#,
+        )
+        .file(
+            "examples/goodbye.rs",
+            r#"
+fn main() {
+    println!("goodbye from cargo-dlx");
+}
+"#,
+        )
+        .build();
+
+    p.cargo_global("run --example goodbye")
+        .with_stdout_data(str![[r#"
+goodbye from cargo-dlx
+
+"#]])
+        .run();
+
+    p.cargo_dlx(&format!(
+        "--example goodbye path+{}#dlx-path-source",
+        p.root().to_url()
+    ))
+    .with_stdout_data(str![[r#"
+goodbye from cargo-dlx
+
+"#]])
+    .run();
+}
+
+#[cargo_test]
 fn uses_root_for_temp_and_build_by_default() {
     Package::new("dlx-root-defaults", "0.1.0")
         .file(

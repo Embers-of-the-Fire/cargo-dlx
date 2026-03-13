@@ -7,6 +7,7 @@ use url::Url;
 const FEATURE_HEADING: &str = "Feature Selection";
 const COMPILATION_HEADING: &str = "Compilation Options";
 const MANIFEST_HEADING: &str = "Manifest Options";
+const TARGET_HEADING: &str = "Target selection";
 const SUBCOMMAND_NAME: &str = "dlx";
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -70,6 +71,24 @@ pub struct Cli {
         conflicts_with = "cache_dir"
     )]
     pub no_package_cache: bool,
+
+    #[arg(
+        long,
+        value_name = "NAME",
+        help = "Build and run the specified binary",
+        help_heading = TARGET_HEADING,
+        conflicts_with = "example"
+    )]
+    pub bin: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "NAME",
+        help = "Build and run the specified example",
+        help_heading = TARGET_HEADING,
+        conflicts_with = "bin"
+    )]
+    pub example: Option<String>,
 
     #[arg(
         short = 'F',
@@ -143,6 +162,10 @@ impl Cli {
 
     pub fn validate(&self) -> Result<(), clap::Error> {
         Ok(())
+    }
+
+    pub fn target_name(&self) -> Option<&str> {
+        self.bin.as_deref().or(self.example.as_deref())
     }
 }
 
@@ -697,6 +720,37 @@ mod tests {
 
         assert_eq!(cli.cache_dir, Some(PathBuf::from("/tmp/cargo-dlx-cache")));
         assert!(!cli.no_package_cache);
+    }
+
+    #[test]
+    fn parses_bin_target_selection() {
+        let cli = Cli::parse_from(["cargo-dlx", "--bin", "hello", "ripgrep"]);
+
+        assert_eq!(cli.bin.as_deref(), Some("hello"));
+        assert_eq!(cli.example, None);
+    }
+
+    #[test]
+    fn parses_example_target_selection() {
+        let cli = Cli::parse_from(["cargo-dlx", "--example", "demo", "ripgrep"]);
+
+        assert_eq!(cli.example.as_deref(), Some("demo"));
+        assert_eq!(cli.bin, None);
+    }
+
+    #[test]
+    fn rejects_selecting_bin_and_example() {
+        let error = Cli::try_parse_from([
+            "cargo-dlx",
+            "--bin",
+            "hello",
+            "--example",
+            "demo",
+            "ripgrep",
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("cannot be used with"));
     }
 
     #[test]

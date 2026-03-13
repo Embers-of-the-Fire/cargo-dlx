@@ -80,7 +80,11 @@ pub fn execute(cli: &Cli) -> Result<Execution, RunError> {
         )));
     }
 
-    let executable = resolve_executable(&install_root.bin_dir(), krate.package.as_deref())?;
+    let executable = resolve_executable(
+        &install_root.bin_dir(),
+        cli.target_name(),
+        krate.package.as_deref(),
+    )?;
 
     let run_status = run_direct(&executable, args).map_err(|error| {
         RunError::new(
@@ -260,6 +264,16 @@ fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<Exit
     command.arg("--profile");
     command.arg(&cli.profile);
 
+    if let Some(bin) = &cli.bin {
+        command.arg("--bin");
+        command.arg(bin);
+    }
+
+    if let Some(example) = &cli.example {
+        command.arg("--example");
+        command.arg(example);
+    }
+
     if let Some(version_req) = &krate.version {
         command.arg("--version");
         command.arg(version_req.to_string());
@@ -425,7 +439,11 @@ fn run_direct(executable: &Path, args: &[OsString]) -> io::Result<ExitStatus> {
     command.status()
 }
 
-fn resolve_executable(bin_dir: &Path, package_name: Option<&str>) -> Result<PathBuf, RunError> {
+fn resolve_executable(
+    bin_dir: &Path,
+    target_name: Option<&str>,
+    package_name: Option<&str>,
+) -> Result<PathBuf, RunError> {
     let mut entries = Vec::new();
 
     let read_dir = fs::read_dir(bin_dir).map_err(|error| {
@@ -465,6 +483,14 @@ fn resolve_executable(bin_dir: &Path, package_name: Option<&str>) -> Result<Path
         ));
     }
 
+    if let Some(target_name) = target_name
+        && let Some(entry) = entries
+            .iter()
+            .find(|entry| binary_target_name(entry).is_some_and(|name| name == target_name))
+    {
+        return Ok(entry.clone());
+    }
+
     if let Some(package_name) = package_name
         && let Some(entry) = entries
             .iter()
@@ -479,22 +505,15 @@ fn resolve_executable(bin_dir: &Path, package_name: Option<&str>) -> Result<Path
 
     let known = entries
         .iter()
-        .map(|entry| {
-            entry
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| entry.display().to_string())
-        })
+        .filter_map(|path| binary_target_name(path))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let message = if let Some(package_name) = package_name {
-        format!(
-            "`{package_name}` installed multiple binaries ({known}), unable to select one automatically"
-        )
-    } else {
-        format!("installed multiple binaries ({known}), unable to select one automatically")
-    };
+    let message = format!(
+        "`cargo run` could not determine which binary to run
+help: specify the binary with `--bin` option
+available binaries: {known}"
+    );
 
     Err(RunError::new(message, 1))
 }
@@ -602,7 +621,7 @@ mod tests {
 
         fs::write(bin_dir.join(bin_name), b"").unwrap();
 
-        let executable = resolve_executable(&bin_dir, Some("my-crate")).unwrap();
+        let executable = resolve_executable(&bin_dir, None, Some("my-crate")).unwrap();
         assert_eq!(binary_target_name(&executable), Some("custom-runner"));
 
         let _ = fs::remove_dir_all(&temp_dir);
@@ -620,7 +639,7 @@ mod tests {
         fs::write(bin_dir.join(first_name), b"").unwrap();
         fs::write(bin_dir.join(second_name), b"").unwrap();
 
-        let executable = resolve_executable(&bin_dir, Some("tool")).unwrap();
+        let executable = resolve_executable(&bin_dir, None, Some("tool")).unwrap();
         assert_eq!(binary_target_name(&executable), Some("tool"));
 
         let _ = fs::remove_dir_all(&temp_dir);
@@ -638,8 +657,31 @@ mod tests {
         fs::write(bin_dir.join(first_name), b"").unwrap();
         fs::write(bin_dir.join(second_name), b"").unwrap();
 
-        let error = resolve_executable(&bin_dir, Some("tool")).unwrap_err();
-        assert!(error.to_string().contains("installed multiple binaries"));
+        let error = resolve_executable(&bin_dir, None, Some("tool")).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("available binaries: alpha, beta"),
+            "{error}"
+        );
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn picks_requested_target_name() {
+        let temp_dir = new_temp_dir("selected-target");
+        let bin_dir = temp_dir.join("bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+
+        let first_name = if cfg!(windows) { "alpha.exe" } else { "alpha" };
+        let second_name = if cfg!(windows) { "demo.exe" } else { "demo" };
+
+        fs::write(bin_dir.join(first_name), b"").unwrap();
+        fs::write(bin_dir.join(second_name), b"").unwrap();
+
+        let executable = resolve_executable(&bin_dir, Some("demo"), Some("tool")).unwrap();
+        assert_eq!(binary_target_name(&executable), Some("demo"));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }
