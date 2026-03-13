@@ -16,7 +16,9 @@ Design decisions should align with existing design elements in Cargo.
 - analysis of prior art and their relevance to Cargo
 - whether to reintroduce `-c` shell execution
 
-## Specifying the package to run
+### Decisions
+
+### Specifying the package to run
 
 To allow specifying packages from any dependency source,
 `cargo dlx` accepts Cargo's
@@ -44,7 +46,7 @@ Alternatives:
 - Only accept `<name>[@<ver>]` from the registry
 - Have `<name>` pull from a local `Cargo.lock` like `cargo info`
 
-## Forwarding arguments
+### Forwarding arguments
 
 Arguments must be forwarded to the underlying binary in a clear and unambiguous manner.
 
@@ -60,7 +62,7 @@ $ cargo dlx [DLX_ARGS] <PACKAGE> [PACKAGE_ARGS]
 $ cargo run -p <PACKAGE> [DLX_ARGS] -- [PACKAGE_ARGS]
 ```
 
-## Multi-binary packages
+### Multi-binary packages
 
 While most packages have just one binary,
 that isn't an inherent requirement.
@@ -84,7 +86,7 @@ Alternatives:
 - Have a syntax to mix this in with the package selection
 - If a [`last`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last) argument is present, the usage becomes `cargo dlx [DLX_ARGS] <PACKAGE> <BIN> -- [PACKAGE_ARGS]`
 
-## Caching strategy
+### Caching strategy
 
 Users want
 - performance: repeated calls to `cargo dlx foo` doing the minimal work possible
@@ -120,7 +122,7 @@ Alternatives:
   - compiler: mechanism is need to request a rebuild
   - settings: changing a setting causes a full rebuild
 
-## Garbage collection strategy
+### Garbage collection strategy
 
 Current behavior:
 
@@ -129,7 +131,7 @@ Current behavior:
 - Build artifacts are cached under `build/target` and reused across invocations.
 - `--clear` removes temporary install roots and package cache directories.
 
-### `--clear` Logic
+#### `--clear` Logic
 
 `--clear` resolves directories independently and does not require a root when explicit temp/build paths are available.
 
@@ -164,7 +166,7 @@ This means environments with no `HOME` and no `CARGO_DLX_ROOT` still support `ca
 Whether the default can be overriden in a config file is dependent on feedback,
 including gathering use cases for it.
 
-## Package-Specific Configuration
+### Package-Specific Configuration
 
 `cargo dlx` would respect to user-defined package-specific configuration, but would not track them implicitly.
 That is to say, `cargo dlx` would accept configuration written to its configuration files,
