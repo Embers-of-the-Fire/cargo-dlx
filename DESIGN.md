@@ -125,6 +125,8 @@ Alternatives:
   - upgrades: mechanism is need to request an upgrade
   - compiler: mechanism is need to request a rebuild
   - settings: changing a setting causes a full rebuild
+- Add a way to disable long lived caching, always using emphemeral caches
+  - If we did this, it should be driven by a user request and live in `.cargo/config.toml` (which also gets env variables and CLI support for free)
 
 ### Garbage collection strategy
 

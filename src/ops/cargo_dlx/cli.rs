@@ -26,7 +26,6 @@ pub struct Cli {
         help = "Delete all cargo-dlx temporary directories and package build cache",
         conflicts_with_all = [
             "krate_and_args",
-            "no_package_cache",
             "features",
             "all_features",
             "no_default_features",
@@ -63,14 +62,6 @@ pub struct Cli {
         help_heading = COMPILATION_HEADING
     )]
     pub cache_dir: Option<PathBuf>,
-
-    #[arg(
-        long,
-        help = "Disable package build artifact caching",
-        help_heading = COMPILATION_HEADING,
-        conflicts_with = "cache_dir"
-    )]
-    pub no_package_cache: bool,
 
     #[arg(
         long,
@@ -719,7 +710,6 @@ mod tests {
         ]);
 
         assert_eq!(cli.cache_dir, Some(PathBuf::from("/tmp/cargo-dlx-cache")));
-        assert!(!cli.no_package_cache);
     }
 
     #[test]

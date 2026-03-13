@@ -314,9 +314,7 @@ fn cargo_binary() -> OsString {
 }
 
 fn configure_package_cache(command: &mut Command, cli: &Cli) -> io::Result<()> {
-    let Some(cache_dir) = package_cache_dir(cli)? else {
-        return Ok(());
-    };
+    let cache_dir = package_cache_dir(cli)?;
 
     fs::create_dir_all(&cache_dir)?;
     command.env("CARGO_TARGET_DIR", cache_dir);
@@ -324,16 +322,12 @@ fn configure_package_cache(command: &mut Command, cli: &Cli) -> io::Result<()> {
     Ok(())
 }
 
-fn package_cache_dir(cli: &Cli) -> io::Result<Option<PathBuf>> {
-    if cli.no_package_cache {
-        return Ok(None);
-    }
-
+fn package_cache_dir(cli: &Cli) -> io::Result<PathBuf> {
     if let Some(path) = &cli.cache_dir {
-        return Ok(Some(path.clone()));
+        return Ok(path.clone());
     }
 
-    Ok(Some(resolve_dlx_directories()?.build_target_dir()))
+    Ok(resolve_dlx_directories()?.build_target_dir())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -697,14 +691,8 @@ mod tests {
 
         assert_eq!(
             package_cache_dir(&cli).unwrap(),
-            Some(PathBuf::from("/tmp/cargo-dlx-package-cache"))
+            PathBuf::from("/tmp/cargo-dlx-package-cache")
         );
-    }
-
-    #[test]
-    fn package_cache_dir_is_disabled_by_flag() {
-        let cli = Cli::parse_from(["cargo-dlx", "--no-package-cache", "ripgrep"]);
-        assert_eq!(package_cache_dir(&cli).unwrap(), None);
     }
 
     #[test]
