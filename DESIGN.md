@@ -16,7 +16,9 @@ Design decisions should align with existing design elements in Cargo.
 - analysis of prior art and their relevance to Cargo
 - whether to reintroduce `-c` shell execution
 
-## Specifying the package to run
+### Decisions
+
+### Specifying the package to run
 
 To allow specifying packages from any dependency source,
 `cargo dlx` accepts Cargo's
@@ -44,7 +46,7 @@ Alternatives:
 - Only accept `<name>[@<ver>]` from the registry
 - Have `<name>` pull from a local `Cargo.lock` like `cargo info`
 
-## Forwarding arguments
+### Forwarding arguments
 
 Arguments must be forwarded to the underlying binary in a clear and unambiguous manner.
 
@@ -60,7 +62,7 @@ $ cargo dlx [DLX_ARGS] <PACKAGE> [PACKAGE_ARGS]
 $ cargo run -p <PACKAGE> [DLX_ARGS] -- [PACKAGE_ARGS]
 ```
 
-## Multi-binary packages
+### Multi-binary packages
 
 While most packages have just one binary,
 that isn't an inherent requirement.
@@ -84,7 +86,7 @@ Alternatives:
 - Have a syntax to mix this in with the package selection
 - If a [`last`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last) argument is present, the usage becomes `cargo dlx [DLX_ARGS] <PACKAGE> <BIN> -- [PACKAGE_ARGS]`
 
-## Caching strategy
+### Caching strategy
 
 Users want
 - performance: repeated calls to `cargo dlx foo` doing the minimal work possible
@@ -120,7 +122,7 @@ Alternatives:
   - compiler: mechanism is need to request a rebuild
   - settings: changing a setting causes a full rebuild
 
-## Garbage collection strategy
+### Garbage collection strategy
 
 Current behavior:
 
@@ -129,7 +131,7 @@ Current behavior:
 - Build artifacts are cached under `build/target` and reused across invocations.
 - `--clear` removes temporary install roots and package cache directories.
 
-### `--clear` Logic
+#### `--clear` Logic
 
 `--clear` resolves directories independently and does not require a root when explicit temp/build paths are available.
 
@@ -164,10 +166,102 @@ This means environments with no `HOME` and no `CARGO_DLX_ROOT` still support `ca
 Whether the default can be overriden in a config file is dependent on feedback,
 including gathering use cases for it.
 
-## Package-Specific Configuration
+### Package-Specific Configuration
 
 `cargo dlx` would respect to user-defined package-specific configuration, but would not track them implicitly.
 That is to say, `cargo dlx` would accept configuration written to its configuration files,
 but would not automatically save them after a random call.
 
 Implement status: Not implemented now.
+
+## Prior art
+
+### Design comparisons
+
+#### [`yarn dlx`](https://yarnpkg.com/cli/dlx)
+
+Usage: `yarn dlx [-p <name>]... <command> [arg]...`
+
+In the current working directory, run the binary script from a package installed to a temporary environment.
+
+Notes:
+- Does not support specifying versions
+
+Further investigation:
+- Can a binary script have a different name than the package?  If so, then instead of `cargo dlx --bin cargo-remove cargo-edit`, the yarn equivalent is `cargo dlx -p cargo-edit cargo-remove`
+
+#### [`pnpm dlx`](https://pnpm.io/cli/dlx)
+
+Usage: `pnpm dlx [--allow-build] [--shell-mode] [--package <name>[@<ver>] <name>[@<ver>] [arg]...`
+
+In the current working directory, run the binary script from a package installed to a temporary environment.
+
+Notes:
+- Supports specifying versions
+  - The [`catalog:` protocol](https://pnpm.io/catalogs) allows for pulling versions from their equivalent of `workspace.dependencies`
+- `--allow-build` is an allowlist for post-install scripts
+- `--shell-mode` runs the command through a shell
+
+#### [`npm exec`](https://docs.npmjs.com/cli/v11/commands/npm-exec/)
+
+Usage:
+- `npm exec -- <name>[@<ver>] [arg]...`
+- `npm exec --package=<name>[@<ver>]... -- <cmd> [arg]...`
+- `npm exec [--package=<name>[@<ver>]]... -c "<cmd> [arg]..."`
+
+In the current working directory, run the binary script from a package installed to the current environment.
+
+Notes:
+- Versions default to what is already installed in the current environment
+- Binary scripts from `--package` are put in `PATH`
+- `--package` and `<cmd>` are used to select a specific binary in a package
+
+#### [`npx`](https://docs.npmjs.com/cli/v11/commands/npx)
+
+Like `npm exec` but no `npx` flags are allowed after the first positional argument.
+([source](https://docs.npmjs.com/cli/v11/commands/npx#npx-vs-npm-exec)).
+
+#### [`bunx`](https://bun.com/docs/pm/bunx)
+
+aka `bun x`
+
+Usage: `bunx [--bun] [--package <name>[@<ver>]]` <cmd> [arg]...`
+
+bunx will check for a locally installed package first, then fall back to auto-installing the package from npm.
+Installed packages will be stored in Bun’s global cache for future use.
+
+Notes:
+- Executes `<cmd>` using its shebang, `--bun` overrides that
+- `--package` and `<cmd>` are used to select a specific binary in a package
+
+#### [`pipx run`](https://pipx.pypa.io/stable/)
+
+Usage: `pipx run [--spec <name>] -- [cmd] [arg]...`
+
+Notes:
+- `--spec` and `<cmd>` are used to select a specific binary in a package but then `.py` is needed on `[cmd]`
+- `<name>` can be a package name, a package name and version requirement, a git URL, or a python file at a URL
+
+#### [`uvx`](https://docs.astral.sh/uv/guides/tools/)
+
+aka `uv tool run`
+
+Usage: `uvx [--from <name>[@<ver-req>] [--with <name>[@<ver-req>] <cmd[@<ver>|@<latest>]> [arg]...`
+
+Notes:
+- `--from` can be a package name, a package name and version requirement, or a git URL
+- `--with` is for specifying plugins
+
+#### [`deno run`](https://docs.deno.com/runtime/reference/cli/run/)
+
+Usage: `deno [--allow-scripts] run <source>`
+
+Notes:
+- `source` can be
+  - a website hosting a source file
+  - a registry identifier
+  - `-` for reading from stdin (e.g. piping from `curl`)
+- `--allow-scripts`: allow list for lifecycle scripts
+- Includes flags for cache management (e.g. `--locked`, `--frozen`, `--cached-only`)
+- Includes permission flags (e.g. `--allow-read`, `--allow-net`)
+- `--watch` mode will kill and restart the process on `<source>` change
