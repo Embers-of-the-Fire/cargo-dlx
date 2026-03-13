@@ -173,3 +173,95 @@ That is to say, `cargo dlx` would accept configuration written to its configurat
 but would not automatically save them after a random call.
 
 Implement status: Not implemented now.
+
+## Prior art
+
+### Design comparisons
+
+#### [`yarn dlx`](https://yarnpkg.com/cli/dlx)
+
+Usage: `yarn dlx [-p <name>]... <command> [arg]...`
+
+In the current working directory, run the binary script from a package installed to a temporary environment.
+
+Notes:
+- Does not support specifying versions
+
+Further investigation:
+- Can a binary script have a different name than the package?  If so, then instead of `cargo dlx --bin cargo-remove cargo-edit`, the yarn equivalent is `cargo dlx -p cargo-edit cargo-remove`
+
+#### [`pnpm dlx`](https://pnpm.io/cli/dlx)
+
+Usage: `pnpm dlx [--allow-build] [--shell-mode] [--package <name>[@<ver>] <name>[@<ver>] [arg]...`
+
+In the current working directory, run the binary script from a package installed to a temporary environment.
+
+Notes:
+- Supports specifying versions
+  - The [`catalog:` protocol](https://pnpm.io/catalogs) allows for pulling versions from their equivalent of `workspace.dependencies`
+- `--allow-build` is an allowlist for post-install scripts
+- `--shell-mode` runs the command through a shell
+
+#### [`npm exec`](https://docs.npmjs.com/cli/v11/commands/npm-exec/)
+
+Usage:
+- `npm exec -- <name>[@<ver>] [arg]...`
+- `npm exec --package=<name>[@<ver>]... -- <cmd> [arg]...`
+- `npm exec [--package=<name>[@<ver>]]... -c "<cmd> [arg]..."`
+
+In the current working directory, run the binary script from a package installed to the current environment.
+
+Notes:
+- Versions default to what is already installed in the current environment
+- Binary scripts from `--package` are put in `PATH`
+- `--package` and `<cmd>` are used to select a specific binary in a package
+
+#### [`npx`](https://docs.npmjs.com/cli/v11/commands/npx)
+
+Like `npm exec` but no `npx` flags are allowed after the first positional argument.
+([source](https://docs.npmjs.com/cli/v11/commands/npx#npx-vs-npm-exec)).
+
+#### [`bunx`](https://bun.com/docs/pm/bunx)
+
+aka `bun x`
+
+Usage: `bunx [--bun] [--package <name>[@<ver>]]` <cmd> [arg]...`
+
+bunx will check for a locally installed package first, then fall back to auto-installing the package from npm.
+Installed packages will be stored in Bun’s global cache for future use.
+
+Notes:
+- Executes `<cmd>` using its shebang, `--bun` overrides that
+- `--package` and `<cmd>` are used to select a specific binary in a package
+
+#### [`pipx run`](https://pipx.pypa.io/stable/)
+
+Usage: `pipx run [--spec <name>] -- [cmd] [arg]...`
+
+Notes:
+- `--spec` and `<cmd>` are used to select a specific binary in a package but then `.py` is needed on `[cmd]`
+- `<name>` can be a package name, a package name and version requirement, a git URL, or a python file at a URL
+
+#### [`uvx`](https://docs.astral.sh/uv/guides/tools/)
+
+aka `uv tool run`
+
+Usage: `uvx [--from <name>[@<ver-req>] [--with <name>[@<ver-req>] <cmd[@<ver>|@<latest>]> [arg]...`
+
+Notes:
+- `--from` can be a package name, a package name and version requirement, or a git URL
+- `--with` is for specifying plugins
+
+#### [`deno run`](https://docs.deno.com/runtime/reference/cli/run/)
+
+Usage: `deno [--allow-scripts] run <source>`
+
+Notes:
+- `source` can be
+  - a website hosting a source file
+  - a registry identifier
+  - `-` for reading from stdin (e.g. piping from `curl`)
+- `--allow-scripts`: allow list for lifecycle scripts
+- Includes flags for cache management (e.g. `--locked`, `--frozen`, `--cached-only`)
+- Includes permission flags (e.g. `--allow-read`, `--allow-net`)
+- `--watch` mode will kill and restart the process on `<source>` change
