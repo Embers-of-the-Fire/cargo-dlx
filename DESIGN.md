@@ -110,6 +110,8 @@ These are inherently contradictory.
 - compiler: current compiler is always used
 - settings: changing a setting only rebuilds as much as is needed
 
+Note: overall, the cache strategy is opaque to the user and we can change how it is implemented over time.
+
 Alternatives:
 - Per-package `target-dir`s
   - performance: unchanged
