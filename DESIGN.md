@@ -65,6 +65,25 @@ $ cargo dlx [DLX_ARGS] <PACKAGE> [PACKAGE_ARGS]
 $ cargo run -p <PACKAGE> [DLX_ARGS] -- [PACKAGE_ARGS]
 ```
 
+### Shell execution mode (`-c`, `--cmdline`)
+
+`cargo dlx` also supports an `npx`-style command-line mode:
+
+```console
+$ cargo dlx -c '<SHELL_COMMAND>' -p <PACKAGE> [-p <PACKAGE> ...] --shell <SHELL>
+$ cargo dlx --cmdline '<SHELL_COMMAND>' --package <PACKAGE> [--package <PACKAGE> ...] --shell <SHELL>
+```
+
+When shell execution mode is enabled:
+
+- Positional package syntax is disabled. For example, `cargo dlx foo@1.2.3 -c 'foo --help'` is invalid.
+- Packages are declared explicitly with repeatable `-p` / `--package`.
+- All specified packages are installed into the same temporary install directory.
+- Installed binaries are injected into the shell execution environment so `<SHELL_COMMAND>` can invoke them directly.
+- `--shell` selects the shell executable used to run the command line.
+
+In this mode, package arguments are part of the shell command string itself rather than passed as structured argv after package parsing.
+
 ### Multi-binary packages
 
 While most packages have just one binary,
