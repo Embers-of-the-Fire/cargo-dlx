@@ -65,20 +65,22 @@ cargo dlx 'file+file:///absolute/path/to/my-tool#my-tool'
 The command installs into a temporary directory, runs the binary, then removes the temporary install root.
 `cargo dlx --clear` can be used to remove cached package artifacts and any stale temporary roots.
 `cargo-dlx` invokes the Cargo executable from `$CARGO` when set, otherwise `cargo` from `PATH`.
-Package build artifacts are cached in a persistent Cargo target directory (default under `~/.cargo-dlx/build/target`)
-to speed up repeated runs, while installed binaries stay temporary.
+Package build artifacts are cached under a persistent build cache base (default under `~/.cargo-dlx/build`)
+with a shared Cargo `build-dir` plus hashed per-invocation `target-dir`s, while installed binaries stay temporary.
 
 ## Cache Strategy
 
-`cargo-dlx` caches **package build artifacts** only (via `CARGO_TARGET_DIR`) to speed up repeated runs.
+`cargo-dlx` caches **package build artifacts** only (via `CARGO_BUILD_BUILD_DIR` and `CARGO_TARGET_DIR`)
+to speed up repeated runs.
 It does **not** cache installed runnable binaries between invocations.
 
 Default runtime layout (under `$CARGO_DLX_ROOT`, which defaults to `~/.cargo-dlx`):
 
 - Temporary install roots: `$CARGO_DLX_ROOT/tmp/<timestamp>`
-- Build cache target directory: `$CARGO_DLX_ROOT/build/target`
+- Shared build script directory: `$CARGO_DLX_ROOT/build/build-dir`
+- Hashed target directories: `$CARGO_DLX_ROOT/build/target/<hash>-<bin-name>-<version>`
 
-Build cache target directory selection (highest priority first):
+Build cache base directory selection (highest priority first):
 
 1. `--cache-dir <DIR>`
 2. `CARGO_DLX_BUILD`
@@ -93,14 +95,15 @@ Temporary install base directory selection (highest priority first):
 
 - **Temporary install root**: each invocation installs binaries into a temporary `--root` directory,
   executes the selected binary, then removes that directory on exit.
-- **Persistent package cache**: build/intermediate artifacts are stored in the package cache directory
-  and reused by future invocations.
+- **Persistent package cache**: Cargo `build-dir` output is shared, and `target-dir` output is isolated per
+  effective dlx input hash under the package cache base.
 - **Cargo global cache**: Cargo's own registry/git cache remains managed by Cargo (typically under
   `CARGO_HOME`, for example `~/.cargo`).
 
 ## Options
 
-- `--cache-dir <dir>` sets the package build cache directory (`CARGO_TARGET_DIR` for install).
+- `--cache-dir <dir>` sets the package build cache base directory used for the shared Cargo `build-dir`
+  and hashed `target-dir`s.
 - `--clear` clears temporary install roots and package build cache paths derived from
   `CARGO_DLX_ROOT`/`CARGO_DLX_TEMP`/`CARGO_DLX_BUILD` (or the directory passed via `--cache-dir`).
 - `CARGO_DLX_ROOT` sets the cargo-dlx runtime root directory (defaults to `~/.cargo-dlx`).
