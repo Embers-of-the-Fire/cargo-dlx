@@ -15,7 +15,9 @@ const CARGO_DLX_BUILD_ENV: &str = "CARGO_DLX_BUILD";
 const CARGO_DLX_ROOT_DIRNAME: &str = ".cargo-dlx";
 const CARGO_DLX_TEMP_DIRNAME: &str = "tmp";
 const CARGO_DLX_BUILD_DIRNAME: &str = "build";
+const CARGO_DLX_BUILD_BUILD_DIRNAME: &str = "build-dir";
 const CARGO_DLX_TARGET_DIRNAME: &str = "target";
+const DEFAULT_VERSION_LABEL: &str = "latest";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Execution {
@@ -118,15 +120,15 @@ fn clear_cached_data(cli: &Cli) -> Result<(), RunError> {
         )
     })?;
 
-    if directories.build_target == directories.temp_base {
+    if directories.build_base == directories.temp_base {
         return Ok(());
     }
 
-    remove_directory_if_exists(&directories.build_target).map_err(|error| {
+    remove_directory_if_exists(&directories.build_base).map_err(|error| {
         RunError::new(
             format!(
                 "failed to clear package build cache at `{}`: {error}",
-                directories.build_target.display()
+                directories.build_base.display()
             ),
             1,
         )
@@ -146,7 +148,7 @@ fn remove_directory_if_exists(path: &Path) -> io::Result<()> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ClearDirectories {
     temp_base: PathBuf,
-    build_target: PathBuf,
+    build_base: PathBuf,
 }
 
 fn resolve_clear_directories(cli: &Cli) -> io::Result<ClearDirectories> {
@@ -183,12 +185,11 @@ fn resolve_clear_directories_with(
             )
         })?;
 
-    let build_target = if let Some(path) = cache_dir {
+    let build_base = if let Some(path) = cache_dir {
         path
     } else {
         resolve_env_path(cwd, build_env)
             .or_else(|| root.as_ref().map(|root| root.join(CARGO_DLX_BUILD_DIRNAME)))
-            .map(|build_base| build_base.join(CARGO_DLX_TARGET_DIRNAME))
             .ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::NotFound,
@@ -201,7 +202,7 @@ fn resolve_clear_directories_with(
 
     Ok(ClearDirectories {
         temp_base,
-        build_target,
+        build_base,
     })
 }
 
@@ -304,7 +305,7 @@ fn install_package(krate: &CrateSpec, cli: &Cli, root: &Path) -> io::Result<Exit
         }
     }
 
-    configure_package_cache(&mut command, cli)?;
+    configure_package_cache(&mut command, krate, cli)?;
 
     command.status()
 }
@@ -313,21 +314,228 @@ fn cargo_binary() -> OsString {
     non_empty_env_os("CARGO").unwrap_or_else(|| OsString::from("cargo"))
 }
 
-fn configure_package_cache(command: &mut Command, cli: &Cli) -> io::Result<()> {
-    let cache_dir = package_cache_dir(cli)?;
+fn configure_package_cache(command: &mut Command, krate: &CrateSpec, cli: &Cli) -> io::Result<()> {
+    let cache_dirs = package_cache_dirs(krate, cli)?;
 
-    fs::create_dir_all(&cache_dir)?;
-    command.env("CARGO_TARGET_DIR", cache_dir);
+    fs::create_dir_all(&cache_dirs.build_dir)?;
+    fs::create_dir_all(&cache_dirs.target_dir)?;
+    command.env("CARGO_BUILD_BUILD_DIR", cache_dirs.build_dir);
+    command.env("CARGO_TARGET_DIR", cache_dirs.target_dir);
 
     Ok(())
 }
 
-fn package_cache_dir(cli: &Cli) -> io::Result<PathBuf> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PackageCacheDirs {
+    build_dir: PathBuf,
+    target_dir: PathBuf,
+}
+
+fn package_cache_dirs(krate: &CrateSpec, cli: &Cli) -> io::Result<PackageCacheDirs> {
+    let build_base = package_cache_base_dir(cli)?;
+    let cache_key = package_cache_key(krate, cli);
+
+    Ok(PackageCacheDirs {
+        build_dir: build_base.join(CARGO_DLX_BUILD_BUILD_DIRNAME),
+        target_dir: build_base
+            .join(CARGO_DLX_TARGET_DIRNAME)
+            .join(cache_key.directory_name()),
+    })
+}
+
+fn package_cache_base_dir(cli: &Cli) -> io::Result<PathBuf> {
     if let Some(path) = &cli.cache_dir {
         return Ok(path.clone());
     }
 
-    Ok(resolve_dlx_directories()?.build_target_dir())
+    Ok(resolve_dlx_directories()?.build_base_dir().to_path_buf())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PackageCacheKey {
+    hash: String,
+    name: String,
+    version: String,
+}
+
+impl PackageCacheKey {
+    fn directory_name(&self) -> String {
+        format!("{}-{}-{}", self.hash, self.name, self.version)
+    }
+}
+
+fn package_cache_key(krate: &CrateSpec, cli: &Cli) -> PackageCacheKey {
+    PackageCacheKey {
+        hash: package_cache_hash(krate, cli),
+        name: package_cache_name_label(krate, cli),
+        version: package_cache_version_label(krate),
+    }
+}
+
+fn package_cache_hash(krate: &CrateSpec, cli: &Cli) -> String {
+    let mut hasher = StableHasher::new();
+
+    hasher.write_optional_str("package", krate.package.as_deref());
+    if let Some(version) = &krate.version {
+        hasher.write_str("version", &version.to_string());
+    } else {
+        hasher.write_str("version", "");
+    }
+
+    match &krate.source {
+        PackageSource::CratesIo => {
+            hasher.write_str("source-kind", "crates-io");
+        }
+        PackageSource::RegistryIndex { index } => {
+            hasher.write_str("source-kind", "registry");
+            hasher.write_str("source-index", index);
+        }
+        PackageSource::Git { url, reference } => {
+            hasher.write_str("source-kind", "git");
+            hasher.write_str("source-url", url);
+            match reference {
+                Some(GitReference::Branch(branch)) => {
+                    hasher.write_str("source-reference-kind", "branch");
+                    hasher.write_str("source-reference", branch);
+                }
+                Some(GitReference::Tag(tag)) => {
+                    hasher.write_str("source-reference-kind", "tag");
+                    hasher.write_str("source-reference", tag);
+                }
+                Some(GitReference::Rev(rev)) => {
+                    hasher.write_str("source-reference-kind", "rev");
+                    hasher.write_str("source-reference", rev);
+                }
+                None => {
+                    hasher.write_str("source-reference-kind", "none");
+                }
+            }
+        }
+        PackageSource::Path { path } => {
+            hasher.write_str("source-kind", "path");
+            hasher.write_str("source-path", &path.to_string_lossy());
+        }
+    }
+
+    hasher.write_str("profile", &cli.profile);
+    hasher.write_optional_str("bin", cli.bin.as_deref());
+    hasher.write_optional_str("example", cli.example.as_deref());
+
+    let mut features = cli.features.clone();
+    features.sort();
+    features.dedup();
+    for feature in features {
+        hasher.write_str("feature", &feature);
+    }
+
+    hasher.write_bool("all-features", cli.all_features);
+    hasher.write_bool("no-default-features", cli.no_default_features);
+    hasher.write_bool("locked", cli.frozen || cli.locked);
+    hasher.write_bool("offline", cli.frozen || cli.offline);
+
+    let hash = format!("{:016x}", hasher.finish());
+    hash[..12].to_owned()
+}
+
+fn package_cache_name_label(krate: &CrateSpec, cli: &Cli) -> String {
+    let name = cli
+        .target_name()
+        .map(str::to_owned)
+        .or_else(|| krate.package.clone())
+        .or_else(|| package_cache_source_name(&krate.source))
+        .unwrap_or_else(|| "package".to_owned());
+
+    sanitize_cache_label(&name)
+}
+
+fn package_cache_source_name(source: &PackageSource) -> Option<String> {
+    match source {
+        PackageSource::CratesIo | PackageSource::RegistryIndex { .. } => None,
+        PackageSource::Git { url, .. } => {
+            let parsed = url::Url::parse(url).ok()?;
+            let segment = parsed.path_segments()?.next_back()?;
+            let inferred = segment.strip_suffix(".git").unwrap_or(segment);
+            if inferred.is_empty() {
+                None
+            } else {
+                Some(inferred.to_owned())
+            }
+        }
+        PackageSource::Path { path } => path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_owned),
+    }
+}
+
+fn package_cache_version_label(krate: &CrateSpec) -> String {
+    let version = krate
+        .version
+        .as_ref()
+        .map(ToString::to_string)
+        .map(|version| version.strip_prefix('=').unwrap_or(&version).to_owned())
+        .unwrap_or_else(|| DEFAULT_VERSION_LABEL.to_owned());
+
+    sanitize_cache_label(&version)
+}
+
+fn sanitize_cache_label(value: &str) -> String {
+    let mut sanitized = String::with_capacity(value.len());
+
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+            sanitized.push(ch);
+        } else {
+            sanitized.push('_');
+        }
+    }
+
+    if sanitized.is_empty() {
+        "package".to_owned()
+    } else {
+        sanitized
+    }
+}
+
+#[derive(Debug, Clone)]
+struct StableHasher(u64);
+
+impl StableHasher {
+    const OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x100000001b3;
+
+    fn new() -> Self {
+        Self(Self::OFFSET_BASIS)
+    }
+
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write_bool(&mut self, label: &str, value: bool) {
+        self.write_str(label, if value { "1" } else { "0" });
+    }
+
+    fn write_optional_str(&mut self, label: &str, value: Option<&str>) {
+        match value {
+            Some(value) => self.write_str(label, value),
+            None => self.write_str(label, ""),
+        }
+    }
+
+    fn write_str(&mut self, label: &str, value: &str) {
+        self.write_bytes(label.as_bytes());
+        self.write_bytes(&[0]);
+        self.write_bytes(value.as_bytes());
+        self.write_bytes(&[0xff]);
+    }
+
+    fn write_bytes(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.0 ^= u64::from(*byte);
+            self.0 = self.0.wrapping_mul(Self::PRIME);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -338,7 +546,17 @@ struct DlxDirectories {
 }
 
 impl DlxDirectories {
-    fn build_target_dir(&self) -> PathBuf {
+    fn build_base_dir(&self) -> &Path {
+        &self.build_base
+    }
+
+    #[cfg(test)]
+    fn build_build_dir(&self) -> PathBuf {
+        self.build_base.join(CARGO_DLX_BUILD_BUILD_DIRNAME)
+    }
+
+    #[cfg(test)]
+    fn build_target_base_dir(&self) -> PathBuf {
         self.build_base.join(CARGO_DLX_TARGET_DIRNAME)
     }
 
@@ -597,7 +815,7 @@ mod tests {
 
     use super::super::cli::Cli;
     use super::{
-        binary_target_name, package_cache_dir, resolve_clear_directories_with,
+        binary_target_name, package_cache_dirs, package_cache_key, resolve_clear_directories_with,
         resolve_dlx_directories_with, resolve_executable,
     };
 
@@ -681,17 +899,30 @@ mod tests {
     }
 
     #[test]
-    fn package_cache_dir_prefers_cli_cache_dir() {
+    fn package_cache_dirs_prefers_cli_cache_dir() {
         let cli = Cli::parse_from([
             "cargo-dlx",
             "--cache-dir",
             "/tmp/cargo-dlx-package-cache",
-            "ripgrep",
+            "ripgrep@14.1.1",
         ]);
+        let krate = "ripgrep@14.1.1".parse().unwrap();
+        let cache_dirs = package_cache_dirs(&krate, &cli).unwrap();
 
         assert_eq!(
-            package_cache_dir(&cli).unwrap(),
-            PathBuf::from("/tmp/cargo-dlx-package-cache")
+            cache_dirs.build_dir,
+            PathBuf::from("/tmp/cargo-dlx-package-cache").join("build-dir")
+        );
+        assert_eq!(
+            cache_dirs.target_dir.parent().unwrap(),
+            PathBuf::from("/tmp/cargo-dlx-package-cache").join("target")
+        );
+        assert!(
+            cache_dirs
+                .target_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with("-ripgrep-14.1.1"))
         );
     }
 
@@ -712,7 +943,14 @@ mod tests {
             PathBuf::from("home").join(".cargo-dlx").join("tmp")
         );
         assert_eq!(
-            directories.build_target_dir(),
+            directories.build_build_dir(),
+            PathBuf::from("home")
+                .join(".cargo-dlx")
+                .join("build")
+                .join("build-dir")
+        );
+        assert_eq!(
+            directories.build_target_base_dir(),
             PathBuf::from("home")
                 .join(".cargo-dlx")
                 .join("build")
@@ -740,7 +978,14 @@ mod tests {
             PathBuf::from("workspace").join("custom-root").join("tmp")
         );
         assert_eq!(
-            directories.build_target_dir(),
+            directories.build_build_dir(),
+            PathBuf::from("workspace")
+                .join("custom-root")
+                .join("build")
+                .join("build-dir")
+        );
+        assert_eq!(
+            directories.build_target_base_dir(),
             PathBuf::from("workspace")
                 .join("custom-root")
                 .join("build")
@@ -764,7 +1009,13 @@ mod tests {
             PathBuf::from("workspace").join("runtime-temp")
         );
         assert_eq!(
-            directories.build_target_dir(),
+            directories.build_build_dir(),
+            PathBuf::from("workspace")
+                .join("build-cache")
+                .join("build-dir")
+        );
+        assert_eq!(
+            directories.build_target_base_dir(),
             PathBuf::from("workspace")
                 .join("build-cache")
                 .join("target")
@@ -800,10 +1051,8 @@ mod tests {
             PathBuf::from("workspace").join("runtime-temp")
         );
         assert_eq!(
-            directories.build_target,
-            PathBuf::from("workspace")
-                .join("build-cache")
-                .join("target")
+            directories.build_base,
+            PathBuf::from("workspace").join("build-cache")
         );
     }
 
@@ -823,7 +1072,33 @@ mod tests {
             directories.temp_base,
             PathBuf::from("workspace").join("runtime-temp")
         );
-        assert_eq!(directories.build_target, PathBuf::from("explicit-cache"));
+        assert_eq!(directories.build_base, PathBuf::from("explicit-cache"));
+    }
+
+    #[test]
+    fn package_cache_key_changes_with_profile() {
+        let release_cli = Cli::parse_from(["cargo-dlx", "ripgrep@14.1.1"]);
+        let dev_cli = Cli::parse_from(["cargo-dlx", "--profile", "dev", "ripgrep@14.1.1"]);
+        let krate = "ripgrep@14.1.1".parse().unwrap();
+
+        let release_key = package_cache_key(&krate, &release_cli);
+        let dev_key = package_cache_key(&krate, &dev_cli);
+
+        assert_ne!(release_key.hash, dev_key.hash);
+        assert_eq!(release_key.name, "ripgrep");
+        assert_eq!(release_key.version, "14.1.1");
+    }
+
+    #[test]
+    fn package_cache_key_normalizes_feature_order() {
+        let first_cli = Cli::parse_from(["cargo-dlx", "-F", "b,a", "ripgrep@14.1.1"]);
+        let second_cli = Cli::parse_from(["cargo-dlx", "-F", "a", "-F", "b", "ripgrep@14.1.1"]);
+        let krate = "ripgrep@14.1.1".parse().unwrap();
+
+        assert_eq!(
+            package_cache_key(&krate, &first_cli),
+            package_cache_key(&krate, &second_cli)
+        );
     }
 
     fn new_temp_dir(label: &str) -> PathBuf {

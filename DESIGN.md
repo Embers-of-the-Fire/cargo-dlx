@@ -136,8 +136,9 @@ Current behavior:
 
 - `cargo dlx` keeps a runtime root at `CARGO_DLX_ROOT` (default `~/.cargo-dlx`).
 - Temporary installation roots are created under `tmp/<timestamp>` and are removed automatically when the process exits.
-- Build artifacts are cached under `build/target` and reused across invocations.
-- `--clear` removes temporary install roots and package cache directories.
+- Build artifacts are cached under `build/`, with shared Cargo `build-dir` output in `build/build-dir`
+  and hashed per-invocation target directories in `build/target/<hash>-<bin-name>-<version>`.
+- `--clear` removes temporary install roots and the package build cache base directory.
 
 #### `--clear` Logic
 
@@ -148,10 +149,10 @@ Current behavior:
    - `<root>/tmp` where `<root>` is from `CARGO_DLX_ROOT` or `~/.cargo-dlx`
    - otherwise: error (`could not determine cargo-dlx temporary directory`)
 
-2. Resolve `build_target` in this order:
+2. Resolve `build_base` in this order:
    - `--cache-dir <DIR>` (used directly)
-   - `CARGO_DLX_BUILD/target`
-   - `<root>/build/target` where `<root>` is from `CARGO_DLX_ROOT` or `~/.cargo-dlx`
+   - `CARGO_DLX_BUILD`
+   - `<root>/build` where `<root>` is from `CARGO_DLX_ROOT` or `~/.cargo-dlx`
    - otherwise: error (`could not determine cargo-dlx build cache directory`)
 
 3. Path normalization rules:
@@ -160,8 +161,8 @@ Current behavior:
 
 4. Deletion steps:
    - remove `temp_base` recursively; ignore `NotFound`
-   - if `build_target == temp_base`, stop (avoid duplicate delete)
-   - otherwise remove `build_target` recursively; ignore `NotFound`
+   - if `build_base == temp_base`, stop (avoid duplicate delete)
+   - otherwise remove `build_base` recursively; ignore `NotFound`
 
 This means environments with no `HOME` and no `CARGO_DLX_ROOT` still support `cargo dlx --clear` when both temporary and build locations are explicit (via `CARGO_DLX_TEMP` + `CARGO_DLX_BUILD`, or `CARGO_DLX_TEMP` + `--cache-dir`).
 

@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use cargo_test_macro::cargo_test;
 use cargo_test_support::{git, paths::CargoPathExt, project, registry::Package, str};
@@ -462,7 +462,9 @@ hello from root defaults
         .run();
 
     let temp_base = dlx_root.join("tmp");
-    let build_target = dlx_root.join("build").join("target");
+    let build_base = dlx_root.join("build");
+    let build_dir = build_base.join("build-dir");
+    let target_base = build_base.join("target");
 
     assert!(
         temp_base.exists(),
@@ -475,9 +477,21 @@ hello from root defaults
         temp_base.display()
     );
     assert!(
-        build_target.exists(),
-        "expected build target cache at {}",
-        build_target.display()
+        build_dir.exists(),
+        "expected shared build dir at {}",
+        build_dir.display()
+    );
+    assert!(
+        target_base.exists(),
+        "expected target cache base at {}",
+        target_base.display()
+    );
+    assert_eq!(
+        target_cache_dir_names(&target_base)
+            .into_iter()
+            .filter(|name| name.ends_with("-dlx-root-defaults-latest"))
+            .count(),
+        1
     );
 }
 
@@ -510,8 +524,9 @@ hello from root overrides
         .run();
 
     let root_temp = dlx_root.join("tmp");
-    let root_build = dlx_root.join("build").join("target");
-    let override_build = dlx_build.join("target");
+    let root_build_base = dlx_root.join("build");
+    let override_build_dir = dlx_build.join("build-dir");
+    let override_target_base = dlx_build.join("target");
 
     assert!(
         dlx_temp.exists(),
@@ -524,9 +539,21 @@ hello from root overrides
         dlx_temp.display()
     );
     assert!(
-        override_build.exists(),
-        "expected build target cache at {}",
-        override_build.display()
+        override_build_dir.exists(),
+        "expected shared build dir at {}",
+        override_build_dir.display()
+    );
+    assert!(
+        override_target_base.exists(),
+        "expected target cache base at {}",
+        override_target_base.display()
+    );
+    assert_eq!(
+        target_cache_dir_names(&override_target_base)
+            .into_iter()
+            .filter(|name| name.ends_with("-dlx-root-overrides-latest"))
+            .count(),
+        1
     );
 
     assert!(
@@ -535,10 +562,127 @@ hello from root overrides
         root_temp.display()
     );
     assert!(
-        !root_build.exists(),
+        !root_build_base.exists(),
         "did not expect root-derived build path at {}",
-        root_build.display()
+        root_build_base.display()
     );
+}
+
+#[cargo_test]
+fn uses_distinct_hashed_target_dirs_for_versions() {
+    Package::new("dlx-cache-versioned", "0.1.0")
+        .file(
+            "src/main.rs",
+            r#"
+fn main() {
+    println!("0.1.0");
+}
+"#,
+        )
+        .publish();
+    Package::new("dlx-cache-versioned", "0.2.0")
+        .file(
+            "src/main.rs",
+            r#"
+fn main() {
+    println!("0.2.0");
+}
+"#,
+        )
+        .publish();
+
+    let p = project().build();
+    let dlx_root = p.root().join(".test-cargo-dlx-version-cache");
+
+    p.cargo_dlx("dlx-cache-versioned@0.1.0")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data(str![[r#"
+0.1.0
+
+"#]])
+        .run();
+
+    p.cargo_dlx("dlx-cache-versioned@0.2.0")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data(str![[r#"
+0.2.0
+
+"#]])
+        .run();
+
+    p.cargo_dlx("dlx-cache-versioned@0.1.0")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data(str![[r#"
+0.1.0
+
+"#]])
+        .run();
+
+    let build_dir = dlx_root.join("build").join("build-dir");
+    let target_base = dlx_root.join("build").join("target");
+    let target_dirs = target_cache_dir_names(&target_base);
+
+    assert!(
+        build_dir.exists(),
+        "expected shared build dir at {}",
+        build_dir.display()
+    );
+    assert_eq!(
+        target_dirs.len(),
+        2,
+        "unexpected target dirs: {target_dirs:?}"
+    );
+    assert!(
+        target_dirs
+            .iter()
+            .any(|name| name.ends_with("-dlx-cache-versioned-0.1.0"))
+    );
+    assert!(
+        target_dirs
+            .iter()
+            .any(|name| name.ends_with("-dlx-cache-versioned-0.2.0"))
+    );
+}
+
+#[cargo_test]
+fn uses_distinct_hashed_target_dirs_for_profiles() {
+    Package::new("dlx-cache-profile", "0.1.0")
+        .file(
+            "src/main.rs",
+            r#"
+fn main() {
+    println!("profile");
+}
+"#,
+        )
+        .publish();
+
+    let p = project().build();
+    let dlx_root = p.root().join(".test-cargo-dlx-profile-cache");
+
+    p.cargo_dlx("dlx-cache-profile@0.1.0")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data(str![[r#"
+profile
+
+"#]])
+        .run();
+
+    p.cargo_dlx("--profile dev dlx-cache-profile@0.1.0")
+        .env("CARGO_DLX_ROOT", &dlx_root)
+        .with_stdout_data(str![[r#"
+profile
+
+"#]])
+        .run();
+
+    let target_dirs = target_cache_dir_names(&dlx_root.join("build").join("target"));
+    let matching = target_dirs
+        .iter()
+        .filter(|name| name.ends_with("-dlx-cache-profile-0.1.0"))
+        .count();
+
+    assert_eq!(matching, 2, "unexpected target dirs: {target_dirs:?}");
 }
 
 #[cargo_test]
@@ -546,11 +690,17 @@ fn clear_removes_root_temp_and_build_cache() {
     let p = project().build();
     let dlx_root = p.root().join(".test-cargo-dlx-clear-root");
     let temp_base = dlx_root.join("tmp");
-    let build_target = dlx_root.join("build").join("target");
+    let build_base = dlx_root.join("build");
+    let build_dir = build_base.join("build-dir");
+    let build_target = build_base
+        .join("target")
+        .join("0123456789ab-dlx-clear-latest");
 
     fs::create_dir_all(temp_base.join("stale")).unwrap();
+    fs::create_dir_all(&build_dir).unwrap();
     fs::create_dir_all(&build_target).unwrap();
     fs::write(temp_base.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(build_dir.join("artifact"), b"x").unwrap();
     fs::write(build_target.join("artifact"), b"x").unwrap();
 
     p.cargo_dlx("--clear")
@@ -560,7 +710,7 @@ fn clear_removes_root_temp_and_build_cache() {
         .run();
 
     assert!(!temp_base.exists());
-    assert!(!build_target.exists());
+    assert!(!build_base.exists());
 }
 
 #[cargo_test]
@@ -571,16 +721,25 @@ fn clear_respects_temp_and_build_overrides() {
     let dlx_build = p.root().join(".test-cargo-dlx-clear-build");
 
     let root_temp = dlx_root.join("tmp");
-    let root_build_target = dlx_root.join("build").join("target");
-    let override_build_target = dlx_build.join("target");
+    let root_build_base = dlx_root.join("build");
+    let root_build_target = root_build_base
+        .join("target")
+        .join("0123456789ab-dlx-clear-root-latest");
+    let override_build_base = dlx_build.clone();
+    let override_build_dir = override_build_base.join("build-dir");
+    let override_build_target = override_build_base
+        .join("target")
+        .join("0123456789ab-dlx-clear-override-latest");
 
     fs::create_dir_all(root_temp.join("keep")).unwrap();
     fs::create_dir_all(&root_build_target).unwrap();
+    fs::create_dir_all(&override_build_dir).unwrap();
     fs::create_dir_all(dlx_temp.join("stale")).unwrap();
     fs::create_dir_all(&override_build_target).unwrap();
 
     fs::write(root_temp.join("keep").join("artifact"), b"x").unwrap();
     fs::write(root_build_target.join("artifact"), b"x").unwrap();
+    fs::write(override_build_dir.join("artifact"), b"x").unwrap();
     fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
     fs::write(override_build_target.join("artifact"), b"x").unwrap();
 
@@ -593,9 +752,9 @@ fn clear_respects_temp_and_build_overrides() {
         .run();
 
     assert!(!dlx_temp.exists());
-    assert!(!override_build_target.exists());
+    assert!(!override_build_base.exists());
     assert!(root_temp.exists());
-    assert!(root_build_target.exists());
+    assert!(root_build_base.exists());
 }
 
 #[cargo_test]
@@ -603,11 +762,16 @@ fn clear_works_with_temp_and_build_overrides_without_root_or_home() {
     let p = project().build();
     let dlx_temp = p.root().join(".test-cargo-dlx-clear-no-home-temp");
     let dlx_build = p.root().join(".test-cargo-dlx-clear-no-home-build");
-    let build_target = dlx_build.join("target");
+    let build_dir = dlx_build.join("build-dir");
+    let build_target = dlx_build
+        .join("target")
+        .join("0123456789ab-dlx-clear-latest");
 
     fs::create_dir_all(dlx_temp.join("stale")).unwrap();
+    fs::create_dir_all(&build_dir).unwrap();
     fs::create_dir_all(&build_target).unwrap();
     fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
+    fs::write(build_dir.join("artifact"), b"x").unwrap();
     fs::write(build_target.join("artifact"), b"x").unwrap();
 
     p.cargo_dlx("--clear")
@@ -622,7 +786,7 @@ fn clear_works_with_temp_and_build_overrides_without_root_or_home() {
         .run();
 
     assert!(!dlx_temp.exists());
-    assert!(!build_target.exists());
+    assert!(!dlx_build.exists());
 }
 
 #[cargo_test]
@@ -632,9 +796,15 @@ fn clear_works_with_temp_and_explicit_cache_without_root_or_home() {
     let explicit_cache_dir = p.root().join("explicit-cache");
 
     fs::create_dir_all(dlx_temp.join("stale")).unwrap();
-    fs::create_dir_all(&explicit_cache_dir).unwrap();
+    fs::create_dir_all(explicit_cache_dir.join("build-dir")).unwrap();
+    fs::create_dir_all(
+        explicit_cache_dir
+            .join("target")
+            .join("0123456789ab-dlx-clear-latest"),
+    )
+    .unwrap();
     fs::write(dlx_temp.join("stale").join("artifact"), b"x").unwrap();
-    fs::write(explicit_cache_dir.join("artifact"), b"x").unwrap();
+    fs::write(explicit_cache_dir.join("build-dir").join("artifact"), b"x").unwrap();
 
     p.cargo_dlx("--clear --cache-dir explicit-cache")
         .env("CARGO_DLX_TEMP", &dlx_temp)
@@ -672,13 +842,28 @@ For more information, try '--help'.
 fn clear_uses_explicit_cache_dir_instead_of_root_build_cache() {
     let p = project().build();
     let dlx_root = p.root().join(".test-cargo-dlx-clear-explicit-root");
-    let root_build_target = dlx_root.join("build").join("target");
+    let root_build_base = dlx_root.join("build");
+    let root_build_target = root_build_base
+        .join("target")
+        .join("0123456789ab-dlx-clear-root-latest");
     let explicit_cache_dir = p.root().join("explicit-cache");
 
     fs::create_dir_all(&root_build_target).unwrap();
-    fs::create_dir_all(&explicit_cache_dir).unwrap();
+    fs::create_dir_all(
+        explicit_cache_dir
+            .join("target")
+            .join("0123456789ab-dlx-clear-latest"),
+    )
+    .unwrap();
     fs::write(root_build_target.join("artifact"), b"x").unwrap();
-    fs::write(explicit_cache_dir.join("artifact"), b"x").unwrap();
+    fs::write(
+        explicit_cache_dir
+            .join("target")
+            .join("0123456789ab-dlx-clear-latest")
+            .join("artifact"),
+        b"x",
+    )
+    .unwrap();
 
     p.cargo_dlx("--clear --cache-dir explicit-cache")
         .env("CARGO_DLX_ROOT", &dlx_root)
@@ -687,11 +872,28 @@ fn clear_uses_explicit_cache_dir_instead_of_root_build_cache() {
         .run();
 
     assert!(!explicit_cache_dir.exists());
-    assert!(root_build_target.exists());
+    assert!(root_build_base.exists());
 }
 
 fn temp_dir_is_empty(path: &std::path::Path) -> bool {
     fs::read_dir(path)
         .map(|mut entries| entries.next().is_none())
         .unwrap_or(false)
+}
+
+fn target_cache_dir_names(path: &Path) -> Vec<String> {
+    let mut names = fs::read_dir(path)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .filter_map(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_owned)
+        })
+        .collect::<Vec<_>>();
+
+    names.sort();
+    names
 }
