@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/Embers-of-the-Fire/cargo-dlx/compare/v0.4.0...v0.5.0) - 2026-03-31
+
+### Added
+
+- Add --bin, --example ([#19](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/19))
+
+### Other
+
+- *(cache)* [**breaking**] refactor cache storage ([#26](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/26))
+- *(design)* Call out the cache is mostly a two-way door ([#23](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/23))
+- Remove --no-package-cache ([#22](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/22))
+- *(design)* Integrate prior art into alternatives ([#21](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/21))
+- *(design)* Explore prior art ([#20](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/20))
+- Leverage snapshot testing ([#18](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/18))
+- Organize bin, lib, and tests more like Cargo ([#16](https://github.com/Embers-of-the-Fire/cargo-dlx/pull/16))
+
 ## [0.4.0](https://github.com/Embers-of-the-Fire/cargo-dlx/compare/v0.3.0...v0.4.0) - 2026-03-11
 
 ### Added
